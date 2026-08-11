@@ -1,6 +1,9 @@
-# Rust
-/target
-Cargo.lock
+# Rust build artifacts
+/target/
+*.xll
+
+# Cargo lockfile (for library crates)
+/Cargo.lock
 
 # IDE
 .idea/
@@ -11,14 +14,6 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
-# Excel / WPS 测试文件
-*.xlsx
-*.xls
-*.xll
-*.dll
-*.db
-*.sqlite
-*.sqlite3
-
-# 日志
-*.log
+# Backup files
+*.rs.bk
+*~

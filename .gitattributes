@@ -1,0 +1,7 @@
+# Rust source files always use LF line endings, regardless of OS
+*.rs text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+
+# Treat XLL as binary (do not convert line endings)
+*.xll binary
