@@ -1,15 +1,14 @@
 # rust-sqlite-xll
 
-> 在 Excel / WPS 中直接运行 SQLite，支持 SQL 查询、参数化防注入、CSV 智能导入、自动类型推断。
+> 在 Excel / WPS 中直接运行 SQLite，支持 SQL 查询、CSV 智能导入、自动类型推断。
 
-[安装指南](./docs/Install.md) · [快速开始](#快速开始) · [API 文档](./docs/API.md) · [常见问题](./docs/FAQ.md) · [更新日志](./CHANGELOG.md)
-
+[安装指南](./docs/Install.md) · [快速开始](#快速开始) · [API 文档](./docs/API.md) · [常见问题](./docs/FAQ.md)
 ---
 
 ## 功能亮点
 
 - **零配置查询**：`=SqlQuery("SELECT * FROM users")` 直接返回二维数组
-- **参数化防注入**：`SqlQueryP` 支持 `?` 占位符，彻底杜绝 SQL 注入
+- **参数化查询**：`SqlQueryP` 支持 `?` 占位符
 - **CSV 智能导入**：自动识别 UTF-8 / GBK 编码，自动推断列类型
 - **内存数据库**：省略路径即可使用共享内存 DB，跨工作表数据互通
 - **分页查询**：`SqlQueryL` 自动追加 LIMIT/OFFSET，百万级数据不卡死
@@ -39,7 +38,7 @@
 ```
 > 省略第一个参数使用内存数据库。自动将首行作为列名，并推断每列的 SQLite 类型。
 
-### 3. 参数化查询（防注入）
+### 3. 参数化查询
 ```excel
 =SqlQueryP(,"SELECT * FROM users WHERE name = ? AND age > ?", "Alice", 18)
 ```
@@ -57,7 +56,7 @@
 | 函数 | 用途 | 复杂度 |
 |------|------|--------|
 | `SqlQuery` | 执行 SELECT 返回结果集 | ⭐ |
-| `SqlQueryP` | 参数化查询（防注入） | ⭐⭐ |
+| `SqlQueryP` | 参数化查询 | ⭐⭐ |
 | `SqlQueryL` | 分页查询（LIMIT/OFFSET） | ⭐⭐ |
 | `SqlExec` | 执行 INSERT/UPDATE/CREATE | ⭐ |
 | `SqlCreateTable` | 从 Excel 区域建表 | ⭐⭐ |
