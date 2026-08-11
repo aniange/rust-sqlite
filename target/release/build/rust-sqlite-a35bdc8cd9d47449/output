@@ -1,0 +1,2 @@
+cargo:rustc-cdylib-link-arg=/OUT:D:\文件\rust_sqlite\target\release\rust-sqlite.xll
+cargo:rerun-if-changed=build.rs

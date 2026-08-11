@@ -1,0 +1,1 @@
+{"rustc":3720210673988096810,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[5445183486346442329,"build_script_build",false,4289403603347377648]],"local":[{"RerunIfChanged":{"output":"release\\build\\rust-sqlite-a35bdc8cd9d47449\\output","paths":["build.rs"]}}],"rustflags":[],"config":0,"compile_kind":0}

@@ -1,0 +1,571 @@
+use xll_rs::types::*;
+use xll_rs::register::{Reg, build_type_string};
+use crate::conn::{MEMORY_DB_URI, with_conn, resolve_conn, get_handle_map, get_conn_cache, get_handle_counter, clear_all};
+use crate::xloper::{extract_conn_str, xloper_to_string_grid, xloper_to_string_list};
+use crate::error::error_to_xloper;
+use crate::functions::query::{sqlquery_impl, sqlqueryp_impl, sqlqueryl_impl};
+use crate::functions::exec::{sqlexec_impl, sqlcreatedb_impl};
+use crate::functions::table::sqlcreatetable_impl;
+use crate::functions::csv_import::sqlimportcsv_impl;
+use crate::functions::metadata::{sqltables_impl, sqlversion_impl, sqlschema_impl, sqlpragma_impl};
+use std::sync::atomic::Ordering;
+
+#[no_mangle]
+pub extern "system" fn sqlconnect(db_path: *mut XLOPER12) -> *mut XLOPER12 {
+    let path = unsafe { extract_conn_str(db_path).unwrap_or_else(|| MEMORY_DB_URI.to_string()) };
+
+    let mut cache = get_conn_cache().lock().unwrap();
+    if !cache.contains_key(&path) {
+        let conn_result = if path == MEMORY_DB_URI {
+            rusqlite::Connection::open_with_flags(
+                &path,
+                rusqlite::OpenFlags::SQLITE_OPEN_URI
+                    | rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
+                    | rusqlite::OpenFlags::SQLITE_OPEN_CREATE,
+            )
+        } else {
+            rusqlite::Connection::open(&path)
+        };
+        match conn_result {
+            Ok(conn) => { cache.insert(path.clone(), conn); }
+            Err(e) => return Box::into_raw(Box::new(error_to_xloper(&format!("Connect failed: {}", e)))),
+        }
+    }
+    drop(cache);
+
+    let handle = if path == MEMORY_DB_URI {
+        "conn_memory".to_string()
+    } else {
+        let id = get_handle_counter().fetch_add(1, Ordering::SeqCst);
+        format!("conn_{}", id)
+    };
+    get_handle_map().lock().unwrap().insert(handle.clone(), path);
+
+    Box::into_raw(Box::new(XLOPER12::from_str(&handle)))
+}
+
+#[no_mangle]
+pub extern "system" fn sqldisconnect(handle: *mut XLOPER12) -> *mut XLOPER12 {
+    let key = unsafe { match (*handle).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let mut map = get_handle_map().lock().unwrap();
+    let mut cache = get_conn_cache().lock().unwrap();
+
+    let msg = if key == "conn_memory" {
+        map.remove(&key);
+        "Memory connection handle released (data remains until Excel closes)".to_string()
+    } else if let Some(path) = map.remove(&key) {
+        cache.remove(&path);
+        format!("Disconnected: {}", key)
+    } else if cache.remove(&key).is_some() {
+        format!("Disconnected: {}", key)
+    } else {
+        return Box::into_raw(Box::new(error_to_xloper(&format!("Unknown handle or path: {}", key))));
+    };
+
+    Box::into_raw(Box::new(XLOPER12::from_str(&msg)))
+}
+
+#[no_mangle]
+pub extern "system" fn sqlquery(conn_str: *mut XLOPER12, sql: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let query = unsafe { match (*sql).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlquery_impl(&conn, &query) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlqueryp(
+    conn_str: *mut XLOPER12,
+    sql: *mut XLOPER12,
+    p1: *mut XLOPER12,
+    p2: *mut XLOPER12,
+    p3: *mut XLOPER12,
+    p4: *mut XLOPER12,
+    p5: *mut XLOPER12,
+) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let query = unsafe { match (*sql).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let mut params = Vec::new();
+    unsafe {
+        for ptr in [p1, p2, p3, p4, p5] {
+            if (*ptr).base_type() != XLTYPE_MISSING {
+                params.push(xloper_to_sqlite_value(&*ptr));
+            }
+        }
+    }
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlqueryp_impl(&conn, &query, &params) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlqueryl(
+    conn_str: *mut XLOPER12,
+    sql: *mut XLOPER12,
+    limit: *mut XLOPER12,
+    offset: *mut XLOPER12,
+) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let query = unsafe { match (*sql).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let limit_val = unsafe {
+        if (*limit).base_type() != XLTYPE_MISSING {
+            Some((*limit).as_f64().unwrap_or(0.0) as i64)
+        } else { None }
+    };
+    let offset_val = unsafe {
+        if (*offset).base_type() != XLTYPE_MISSING {
+            Some((*offset).as_f64().unwrap_or(0.0) as i64)
+        } else { None }
+    };
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlqueryl_impl(&conn, &query, limit_val, offset_val) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlexec(conn_str: *mut XLOPER12, sql: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let stmt = unsafe { match (*sql).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlexec_impl(&conn, &stmt) {
+        Ok(n) => Box::into_raw(Box::new(XLOPER12::from_f64(n as f64))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqltables(conn_str: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let conn = resolve_conn(&conn_raw);
+    match sqltables_impl(&conn) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlversion(conn_str: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlversion_impl(&conn) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlschema(conn_str: *mut XLOPER12, table_name: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let name = unsafe { match (*table_name).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlschema_impl(&conn, &name) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlpragma(conn_str: *mut XLOPER12, pragma_name: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let name = unsafe { match (*pragma_name).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlpragma_impl(&conn, &name) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlcreatedb(path: *mut XLOPER12) -> *mut XLOPER12 {
+    let db_path = unsafe { match (*path).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    match sqlcreatedb_impl(&db_path) {
+        Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlcreatetable(
+    db: *mut XLOPER12,
+    name: *mut XLOPER12,
+    data: *mut XLOPER12,
+    columns: *mut XLOPER12,
+    types: *mut XLOPER12,
+) -> *mut XLOPER12 {
+    let db_raw = unsafe { match extract_conn_str(db) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let table_name = unsafe { match (*name).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let data_grid = unsafe { match xloper_to_string_grid(data) {
+        Some(g) => g,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let cols = unsafe {
+        if (*columns).base_type() == XLTYPE_MISSING {
+            None
+        } else {
+            xloper_to_string_list(columns)
+        }
+    };
+
+    let types_opt = unsafe {
+        if (*types).base_type() == XLTYPE_MISSING {
+            None
+        } else {
+            xloper_to_string_list(types)
+        }
+    };
+
+    let db_path = resolve_conn(&db_raw);
+
+    match with_conn(&db_path, |conn| {
+        sqlcreatetable_impl(conn, &table_name, data_grid, cols, types_opt)
+    }) {
+        Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn sqlimportcsv(
+    conn_str: *mut XLOPER12,
+    csv_path: *mut XLOPER12,
+    table_name: *mut XLOPER12,
+    has_header: *mut XLOPER12,
+    delimiter: *mut XLOPER12,
+    columns: *mut XLOPER12,
+    types: *mut XLOPER12,
+) -> *mut XLOPER12 {
+    let conn_raw = unsafe { match extract_conn_str(conn_str) {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+    let conn = resolve_conn(&conn_raw);
+
+    let csv = unsafe { match (*csv_path).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let tbl = unsafe { match (*table_name).as_string() {
+        Some(s) => s,
+        None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+    }};
+
+    let header = unsafe {
+        if (*has_header).base_type() == XLTYPE_MISSING || (*has_header).base_type() == XLTYPE_NIL {
+            true
+        } else {
+            (*has_header).as_bool().unwrap_or(true)
+        }
+    };
+
+    let delim = unsafe {
+        if (*delimiter).base_type() == XLTYPE_MISSING || (*delimiter).base_type() == XLTYPE_NIL {
+            b','
+        } else {
+            match (*delimiter).as_string() {
+                Some(s) if !s.is_empty() => s.as_bytes()[0],
+                _ => b','
+            }
+        }
+    };
+
+    let cols = unsafe {
+        if (*columns).base_type() == XLTYPE_MISSING {
+            None
+        } else {
+            xloper_to_string_list(columns)
+        }
+    };
+
+    let types_opt = unsafe {
+        if (*types).base_type() == XLTYPE_MISSING {
+            None
+        } else {
+            xloper_to_string_list(types)
+        }
+    };
+
+    match with_conn(&conn, |conn| {
+        sqlimportcsv_impl(conn, &csv, &tbl, header, delim, cols, types_opt)
+    }) {
+        Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn xlAutoOpen() -> i32 {
+    let reg = Reg::new();
+
+    let _ = reg.add(
+        "sqlconnect",
+        &build_type_string('Q', &['Q'], true, false, false),
+        "SqlConnect",
+        "db_path",
+        "SQLite",
+        "Connect to a SQLite database and return a handle for reuse. Omit path to use in-memory database.",
+        &[
+            "Full path to the SQLite database file, or omit to use shared memory database",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqldisconnect",
+        &build_type_string('Q', &['Q'], true, false, false),
+        "SqlDisconnect",
+        "handle_or_path",
+        "SQLite",
+        "Disconnect a database handle or close a cached connection",
+        &[
+            "Connection handle (e.g. conn_1, conn_memory) or full database path",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlquery",
+        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        "SqlQuery",
+        "conn_str, sql",
+        "SQLite",
+        "Execute SELECT query and return results as a 2D array",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "The SQL SELECT statement to execute",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlqueryp",
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        "SqlQueryP",
+        "conn_str, sql, p1, p2, p3, p4, p5",
+        "SQLite",
+        "Execute query with bound parameters (up to 5), prevents SQL injection",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "SQL statement using ? as placeholders",
+            "First parameter value (optional)",
+            "Second parameter value (optional)",
+            "Third parameter value (optional)",
+            "Fourth parameter value (optional)",
+            "Fifth parameter value (optional)",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlqueryl",
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q'], true, false, false),
+        "SqlQueryL",
+        "conn_str, sql, limit, offset",
+        "SQLite",
+        "Execute query with LIMIT/OFFSET pagination",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "The SQL SELECT statement (do not include LIMIT/OFFSET)",
+            "Maximum number of rows to return (optional)",
+            "Number of rows to skip before returning results (optional)",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlexec",
+        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        "SqlExec",
+        "conn_str, sql",
+        "SQLite",
+        "Execute INSERT/UPDATE/DELETE/CREATE TABLE and return affected row count",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "The SQL statement to execute",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqltables",
+        &build_type_string('Q', &['Q'], true, false, false),
+        "SqlTables",
+        "conn_str",
+        "SQLite",
+        "List all tables in the specified database",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlversion",
+        &build_type_string('Q', &['Q'], true, false, false),
+        "SqlVersion",
+        "conn_str",
+        "SQLite",
+        "Return the SQLite engine version number",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlschema",
+        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        "SqlSchema",
+        "conn_str, table_name",
+        "SQLite",
+        "Return column structure of a table (PRAGMA table_info)",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "Name of the table to inspect",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlpragma",
+        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        "SqlPragma",
+        "conn_str, pragma_name",
+        "SQLite",
+        "Execute a PRAGMA statement and return results",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "PRAGMA name and arguments, e.g. 'journal_mode' or 'table_info(users)'",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlcreatedb",
+        &build_type_string('Q', &['Q'], true, false, false),
+        "SqlCreateDb",
+        "db_path",
+        "SQLite",
+        "Create a new empty SQLite database file",
+        &[
+            "Full file path for the new database (e.g. C:\\data\\new.db)",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlcreatetable",
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        "SqlCreateTable",
+        "db_path, table_name, data, columns, types",
+        "SQLite",
+        "Create table from Excel data range. Omit columns/types to use first row as headers with auto-detected types.",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "Name for the new table",
+            "Excel data range (2D array). First row used as headers if columns omitted",
+            "Optional: column names. Can be a range (e.g. A1:D1) or array literal {\"id\",\"name\"}",
+            "Optional: column types. Can be a range (e.g. F1:F4) or array literal {\"INTEGER\",\"TEXT\"}. If omitted, auto-detected from data",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlimportcsv",
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        "SqlImportCsv",
+        "conn_str, csv_path, table_name, has_header, delimiter, columns, types",
+        "SQLite",
+        "Import a CSV file into SQLite. Auto-detects headers and column types. Supports custom delimiters and encoding (UTF-8/GBK).",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "Full path to the CSV file (e.g. C:\\data\\file.csv)",
+            "Name for the new table",
+            "Optional: does CSV have header row? TRUE/FALSE, default TRUE",
+            "Optional: delimiter character, default comma ','",
+            "Optional: column names. Can be a range or array literal",
+            "Optional: column types. Can be a range or array literal",
+        ],
+    );
+
+    1
+}
+
+#[no_mangle]
+pub extern "system" fn xlAutoClose() -> i32 {
+    clear_all();
+    1
+}
+
+fn xloper_to_sqlite_value(op: &XLOPER12) -> rusqlite::types::Value {
+    match op.base_type() {
+        XLTYPE_NUM => rusqlite::types::Value::Real(op.as_f64().unwrap_or(0.0)),
+        XLTYPE_INT => rusqlite::types::Value::Integer(op.as_f64().unwrap_or(0.0) as i64),
+        XLTYPE_BOOL => rusqlite::types::Value::Integer(if op.as_bool().unwrap_or(false) { 1 } else { 0 }),
+        XLTYPE_STR => rusqlite::types::Value::Text(op.as_string().unwrap_or_default()),
+        _ => rusqlite::types::Value::Null,
+    }
+}

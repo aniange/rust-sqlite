@@ -1,0 +1,15 @@
+# Rust build artifacts
+/target/          
+*.xll
+
+# Cargo lockfile (for library crates)
+/Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
