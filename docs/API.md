@@ -1,0 +1,515 @@
+# API 文档
+
+> 本文档包含所有导出函数的完整说明，按使用场景分组。
+
+---
+
+## 目录
+
+- [通用参数](#通用参数)
+- [查询类](#查询类)
+  - [SqlQuery](#sqlquery)
+  - [SqlQueryP](#sqlqueryp)
+  - [SqlQueryL](#sqlqueryl)
+- [执行类](#执行类)
+  - [SqlExec](#sqlexec)
+  - [SqlCreateDb](#sqlcreatedb)
+- [数据导入类](#数据导入类)
+  - [SqlCreateTable](#sqlcreatetable)
+  - [SqlImportCsv](#sqlimportcsv)
+- [连接管理类](#连接管理类)
+  - [SqlConnect](#sqlconnect)
+  - [SqlDisconnect](#sqldisconnect)
+- [元数据类](#元数据类)
+  - [SqlTables](#sqltables)
+  - [SqlVersion](#sqlversion)
+  - [SqlSchema](#sqlschema)
+  - [SqlPragma](#sqlpragma)
+
+---
+
+## 通用参数
+
+### `conn_str`（连接字符串）
+
+所有函数的第一个参数均为连接标识，支持三种形式：
+
+| 形式 | 示例 | 说明 |
+|------|------|------|
+| **省略 / 空字符串** | `=SqlQuery(,"SELECT ...")` | 使用共享内存数据库，数据在 Excel 进程存活期间保持 |
+| **文件路径** | `=SqlQuery("C:\\data\\test.db", ...)` | 直接指定 SQLite 数据库文件的完整路径 |
+| **连接句柄** | `=SqlQuery("conn_1", ...)` | 使用 `SqlConnect` 返回的句柄，连接会被缓存复用 |
+
+> 路径中的反斜杠在 Excel 公式中需要写成 `\\`，或使用正斜杠 `/`。
+
+### 错误代码
+
+| 错误 | 触发条件 |
+|------|----------|
+| `#REF!` | 数据库文件不存在、表不存在、列不存在 |
+| `#NAME?` | SQL 语法错误、连接失败、无法识别的 token |
+| `#VALUE!` | 参数数量/类型不匹配、查询执行失败、CSV 解析错误 |
+
+---
+
+## 查询类
+
+### SqlQuery
+
+执行 SELECT 查询，返回二维数组（首行为列名）。
+
+**语法**
+```excel
+=SqlQuery([conn_str], sql)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄，省略使用内存数据库 |
+| `sql` | 字符串 | 是 | SELECT 语句 |
+
+**返回值**
+
+二维数组。首行为列名，后续行为数据。空查询返回空字符串。
+
+**示例**
+```excel
+=SqlQuery("sales.db", "SELECT * FROM orders WHERE amount > 1000")
+=SqlQuery(,"SELECT name, score FROM students ORDER BY score DESC")
+```
+
+**注意事项**
+- 返回大量数据时 Excel 可能卡顿，建议配合 `SqlQueryL` 分页使用
+- 日期时间以 INTEGER（Unix 时间戳）或 TEXT 形式返回，需手动设置单元格格式
+
+---
+
+### SqlQueryP
+
+执行带参数绑定的 SELECT 查询，防止 SQL 注入。
+
+**语法**
+```excel
+=SqlQueryP([conn_str], sql, [p1], [p2], [p3], [p4], [p5])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `sql` | 字符串 | 是 | 含 `?` 占位符的 SELECT 语句 |
+| `p1` ~ `p5` | 任意 | 否 | 与 `?` 一一对应的参数值，最多 5 个 |
+
+**返回值**
+
+同 `SqlQuery`。
+
+**示例**
+```excel
+=SqlQueryP(,"SELECT * FROM users WHERE name = ? AND age > ?", "Alice", 18)
+=SqlQueryP("conn_1","SELECT * FROM logs WHERE level = ? AND date = ?", "ERROR", "2024-01-01")
+```
+
+**注意事项**
+- `?` 的数量必须与提供的参数数量完全一致，否则会返回 `#VALUE!`
+- 参数类型会自动推断：数字 → INTEGER/REAL，文本 → TEXT
+
+---
+
+### SqlQueryL
+
+执行分页查询，自动追加 LIMIT/OFFSET。
+
+**语法**
+```excel
+=SqlQueryL([conn_str], sql, [limit], [offset])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `sql` | 字符串 | 是 | SELECT 语句（**不要**包含 LIMIT/OFFSET） |
+| `limit` | 数字 | 否 | 返回的最大行数 |
+| `offset` | 数字 | 否 | 跳过的行数 |
+
+**返回值**
+
+同 `SqlQuery`。
+
+**示例**
+```excel
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)      ' 第 1 页
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)   ' 第 2 页
+=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50) ' 最新 50 条
+```
+
+**注意事项**
+- 如果 `sql` 中已包含 `LIMIT`（不区分大小写），则不会追加分页，避免冲突
+- 子查询中含 `LIMIT` 也会被检测到，此时分页不会生效（保守策略）
+
+---
+
+## 执行类
+
+### SqlExec
+
+执行 INSERT / UPDATE / DELETE / CREATE TABLE 等非查询语句。
+
+**语法**
+```excel
+=SqlExec([conn_str], sql)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `sql` | 字符串 | 是 | 要执行的 SQL 语句 |
+
+**返回值**
+
+受影响的行数（数字）。
+
+**示例**
+```excel
+=SqlExec(,"CREATE INDEX idx_name ON users(name)")
+=SqlExec(,"UPDATE orders SET status = 'shipped' WHERE id = 100")
+=SqlExec(,"DELETE FROM logs WHERE created_at < '2023-01-01'")
+```
+
+**注意事项**
+- 不能用于 SELECT 查询（不会返回结果集）
+- DDL 语句（CREATE/DROP）返回 0
+
+---
+
+### SqlCreateDb
+
+创建一个新的空 SQLite 数据库文件。
+
+**语法**
+```excel
+=SqlCreateDb(db_path)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `db_path` | 字符串 | 是 | 新数据库文件的完整路径 |
+
+**返回值**
+
+成功返回 `"Database created"`，失败返回对应错误码。
+
+**示例**
+```excel
+=SqlCreateDb("C:\\data\\new_project.db")
+```
+
+---
+
+## 数据导入类
+
+### SqlCreateTable
+
+从 Excel 数据区域创建 SQLite 表，自动推断列名和类型。
+
+**语法**
+```excel
+=SqlCreateTable([db_path], table_name, data, [columns], [types])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `db_path` | 字符串 | 否 | 目标数据库路径或句柄，省略使用内存数据库 |
+| `table_name` | 字符串 | 是 | 新表名 |
+| `data` | 区域 | 是 | Excel 二维数组（如 `A1:D100`） |
+| `columns` | 区域/数组 | 否 | 自定义列名。省略则使用 `data` 的首行 |
+| `types` | 区域/数组 | 否 | 自定义列类型。省略则自动推断 |
+
+**返回值**
+
+成功返回 `"Table 'xxx' created: N columns, M rows"`。
+
+**示例**
+```excel
+' 使用首行作为列名，自动推断类型
+=SqlCreateTable(,"employees", A1:E50)
+
+' 指定列名，自动推断类型
+=SqlCreateTable(,"products", A2:C100, {"id","name","price"})
+
+' 完全自定义列名和类型
+=SqlCreateTable(,"orders", B2:F200, {"order_id","customer","amount","date","status"}, {"INTEGER","TEXT","REAL","TEXT","TEXT"})
+```
+
+**注意事项**
+- 如果表已存在，会先 **DROP** 再重建，避免重复追加
+- 空单元格会被推断为 `""`（TEXT）或 `0`（INTEGER），建议清理空行
+- 列名会自动去除引号、去空格；空列名自动命名为 `col_N`
+
+---
+
+### SqlImportCsv
+
+从 CSV 文件导入数据到 SQLite 表，自动识别编码和列类型。
+
+**语法**
+```excel
+=SqlImportCsv([conn_str], csv_path, table_name, [has_header], [delimiter], [columns], [types])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 目标数据库路径或句柄 |
+| `csv_path` | 字符串 | 是 | CSV 文件的完整路径 |
+| `table_name` | 字符串 | 是 | 新表名 |
+| `has_header` | 布尔 | 否 | 首行是否为列名，默认 `TRUE` |
+| `delimiter` | 字符串 | 否 | 分隔符，默认逗号 `,` |
+| `columns` | 区域/数组 | 否 | 自定义列名 |
+| `types` | 区域/数组 | 否 | 自定义列类型 |
+
+**返回值**
+
+成功返回 `"Table 'xxx' created from CSV: N columns, M rows"`。
+
+**示例**
+```excel
+' 默认：逗号分隔，首行为列名
+=SqlImportCsv(,"C:\\data\\sales.csv", "sales")
+
+' 制表符分隔，无表头
+=SqlImportCsv(,"C:\\data\\data.tsv", "raw_data", FALSE, "\t")
+
+' 自定义列名和类型
+=SqlImportCsv(,"C:\\data\\file.csv", "imported", TRUE, ",", {"id","value"}, {"INTEGER","REAL"})
+```
+
+**注意事项**
+- 编码自动识别：先尝试 UTF-8，失败则 fallback 到 GB18030（兼容 GBK）
+- 如果 CSV 包含 BOM（UTF-8 签名），会自动处理
+- 大文件使用事务批量插入，性能优于逐条 INSERT
+- 空行会被跳过，但格式错误的行可能导致 `#VALUE!`
+
+---
+
+## 连接管理类
+
+### SqlConnect
+
+连接到数据库并返回一个可复用的句柄。
+
+**语法**
+```excel
+=SqlConnect([db_path])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `db_path` | 字符串 | 否 | 数据库文件路径，省略则使用内存数据库 |
+
+**返回值**
+
+连接句柄（如 `"conn_1"`、`"conn_memory"`）。
+
+**示例**
+```excel
+=SqlConnect()                    ' 内存数据库
+=SqlConnect("C:\\data\\app.db")  ' 文件数据库
+```
+
+**注意事项**
+- 句柄对应的连接会被缓存，后续使用该句柄的公式无需重新打开文件
+- 内存数据库的句柄固定为 `"conn_memory"`
+- 文件路径中的反斜杠在 Excel 中需写成 `\\`
+
+---
+
+### SqlDisconnect
+
+断开连接句柄或关闭指定路径的缓存连接。
+
+**语法**
+```excel
+=SqlDisconnect(handle_or_path)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `handle_or_path` | 字符串 | 是 | 句柄（如 `"conn_1"`）或完整文件路径 |
+
+**返回值**
+
+成功返回断开确认信息。
+
+**示例**
+```excel
+=SqlDisconnect("conn_1")
+=SqlDisconnect("conn_memory")
+=SqlDisconnect("C:\\data\\app.db")
+```
+
+**注意事项**
+- 断开 `"conn_memory"` 仅释放句柄，数据在 Excel 进程退出前仍然保留
+- 断开文件连接会关闭底层数据库连接并清除缓存
+
+---
+
+## 元数据类
+
+### SqlTables
+
+列出数据库中的所有表。
+
+**语法**
+```excel
+=SqlTables([conn_str])
+```
+
+**返回值**
+
+单列数组，每个元素为一个表名。
+
+**示例**
+```excel
+=SqlTables()           ' 内存数据库中的表
+=SqlTables("app.db")   ' 指定数据库中的表
+```
+
+---
+
+### SqlVersion
+
+返回 SQLite 引擎版本号。
+
+**语法**
+```excel
+=SqlVersion([conn_str])
+```
+
+**返回值**
+
+版本号字符串（如 `"3.45.1"`）。
+
+**示例**
+```excel
+=SqlVersion()
+```
+
+---
+
+### SqlSchema
+
+返回指定表的列结构信息（PRAGMA table_info）。
+
+**语法**
+```excel
+=SqlSchema([conn_str], table_name)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `table_name` | 字符串 | 是 | 要查看结构的表名 |
+
+**返回值**
+
+二维数组，包含列：cid, name, type, notnull, dflt_value, pk
+
+**示例**
+```excel
+=SqlSchema(,"users")
+=SqlSchema("app.db", "orders")
+```
+
+---
+
+### SqlPragma
+
+执行 PRAGMA 语句并返回结果。
+
+**语法**
+```excel
+=SqlPragma([conn_str], pragma_name)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `pragma_name` | 字符串 | 是 | PRAGMA 名称及参数 |
+
+**返回值**
+
+PRAGMA 查询结果，格式取决于具体 PRAGMA。
+
+**示例**
+```excel
+=SqlPragma(,"journal_mode")           ' 返回当前日志模式
+=SqlPragma(,"table_info(users)")     ' 同 SqlSchema
+=SqlPragma(,"index_list(orders)")    ' 查看表的索引
+=SqlPragma(,"foreign_key_list(items)") ' 查看外键约束
+```
+
+**注意事项**
+- PRAGMA 名称中的分号 `;` 和引号 `"` 会被自动过滤，防止注入
+- 部分 PRAGMA（如 `VACUUM`）不返回结果集，建议使用 `SqlExec` 执行
+
+---
+
+## 类型映射参考
+
+### Excel → SQLite（参数绑定）
+
+| Excel 输入 | SQLite 类型 |
+|-----------|------------|
+| 数字（整数） | INTEGER |
+| 数字（小数） | REAL |
+| 文本 | TEXT |
+| 布尔（TRUE/FALSE） | INTEGER（1/0） |
+| 空单元格 | NULL |
+
+### SQLite → Excel（结果返回）
+
+| SQLite 类型 | Excel 显示 |
+|-----------|-----------|
+| INTEGER | 数字 |
+| REAL | 数字 |
+| TEXT | 文本 |
+| BLOB | 十六进制字符串（如 `DEADBEEF`） |
+| NULL | 空字符串 `""` |
+
+---
+
+## 自定义类型别名
+
+在 `SqlCreateTable` 和 `SqlImportCsv` 的 `types` 参数中，以下别名会被自动映射为标准 SQLite 类型：
+
+| 输入别名 | 映射为 |
+|---------|--------|
+| `INT`, `BIGINT`, `SMALLINT`, `TINYINT` | `INTEGER` |
+| `FLOAT`, `DOUBLE`, `DOUBLE PRECISION` | `REAL` |
+| `VARCHAR`, `CHAR`, `STRING`, `NVARCHAR`, `CLOB` | `TEXT` |
+| `BINARY`, `VARBINARY` | `BLOB` |
+| `DECIMAL`, `NUMBER` | `NUMERIC` |
+| `BOOL`, `BOOLEAN` | `INTEGER` |
+| `DATE`, `DATETIME`, `TIMESTAMP`, `TIME` | `TEXT` |
+| 其他 / 空 | `TEXT` |
