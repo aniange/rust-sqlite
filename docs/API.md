@@ -7,6 +7,9 @@
 ## 目录
 
 - [通用参数](#通用参数)
+- [连接管理类](#连接管理类)
+  - [SqlConnect](#sqlconnect)
+  - [SqlDisconnect](#sqldisconnect)
 - [查询类](#查询类)
   - [SqlQuery](#sqlquery)
   - [SqlQueryP](#sqlqueryp)
@@ -17,9 +20,6 @@
 - [数据导入类](#数据导入类)
   - [SqlCreateTable](#sqlcreatetable)
   - [SqlImportCsv](#sqlimportcsv)
-- [连接管理类](#连接管理类)
-  - [SqlConnect](#sqlconnect)
-  - [SqlDisconnect](#sqldisconnect)
 - [元数据类](#元数据类)
   - [SqlTables](#sqltables)
   - [SqlVersion](#sqlversion)
@@ -49,6 +49,71 @@
 | `#REF!` | 数据库文件不存在、表不存在、列不存在 |
 | `#NAME?` | SQL 语法错误、连接失败、无法识别的 token |
 | `#VALUE!` | 参数数量/类型不匹配、查询执行失败、CSV 解析错误 |
+
+---
+
+## 连接管理类
+
+### SqlConnect
+
+连接到数据库并返回一个可复用的句柄。
+
+**语法**
+```excel
+=SqlConnect([db_path])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `db_path` | 字符串 | 否 | 数据库文件路径，省略则使用内存数据库 |
+
+**返回值**
+
+连接句柄（如 `"conn_1"`、`"conn_memory"`）。
+
+**示例**
+```excel
+=SqlConnect()                    ' 内存数据库
+=SqlConnect("C:\data\app.db")  ' 文件数据库
+```
+
+**注意事项**
+- 句柄对应的连接会被缓存，后续使用该句柄的公式无需重新打开文件
+- 内存数据库的句柄固定为 `"conn_memory"`
+
+---
+
+### SqlDisconnect
+
+断开连接句柄或关闭指定路径的缓存连接。
+
+**语法**
+```excel
+=SqlDisconnect(handle_or_path)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `handle_or_path` | 字符串 | 是 | 句柄（如 `"conn_1"`）或完整文件路径 |
+
+**返回值**
+
+成功返回断开确认信息。
+
+**示例**
+```excel
+=SqlDisconnect("conn_1")
+=SqlDisconnect("conn_memory")
+=SqlDisconnect("C:\data\app.db")
+```
+
+**注意事项**
+- 断开 `"conn_memory"` 仅释放句柄，数据在 Excel 进程退出前仍然保留
+- 断开文件连接会关闭底层数据库连接并清除缓存
 
 ---
 
@@ -476,71 +541,6 @@
 - 输出文件路径的父目录必须存在
 - 如果文件已存在，会被覆盖
 - BLOB 字段以十六进制字符串形式导出
-
----
-
-## 连接管理类
-
-### SqlConnect
-
-连接到数据库并返回一个可复用的句柄。
-
-**语法**
-```excel
-=SqlConnect([db_path])
-```
-
-**参数**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `db_path` | 字符串 | 否 | 数据库文件路径，省略则使用内存数据库 |
-
-**返回值**
-
-连接句柄（如 `"conn_1"`、`"conn_memory"`）。
-
-**示例**
-```excel
-=SqlConnect()                    ' 内存数据库
-=SqlConnect("C:\data\app.db")  ' 文件数据库
-```
-
-**注意事项**
-- 句柄对应的连接会被缓存，后续使用该句柄的公式无需重新打开文件
-- 内存数据库的句柄固定为 `"conn_memory"`
-
----
-
-### SqlDisconnect
-
-断开连接句柄或关闭指定路径的缓存连接。
-
-**语法**
-```excel
-=SqlDisconnect(handle_or_path)
-```
-
-**参数**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `handle_or_path` | 字符串 | 是 | 句柄（如 `"conn_1"`）或完整文件路径 |
-
-**返回值**
-
-成功返回断开确认信息。
-
-**示例**
-```excel
-=SqlDisconnect("conn_1")
-=SqlDisconnect("conn_memory")
-=SqlDisconnect("C:\data\app.db")
-```
-
-**注意事项**
-- 断开 `"conn_memory"` 仅释放句柄，数据在 Excel 进程退出前仍然保留
-- 断开文件连接会关闭底层数据库连接并清除缓存
 
 ---
 
