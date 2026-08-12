@@ -2,7 +2,7 @@
 
 > 在 Excel / WPS 中直接运行 SQLite，支持 SQL 查询、参数化防注入、CSV 智能导入、自动类型推断。
 
-[安装指南](./docs/Install.md) · [快速开始](#快速开始) · [API 文档](./docs/API.md) · [常见问题](./docs/FAQ.md) · [更新日志](./CHANGELOG.md)
+[安装指南](./docs/Install.md) · [快速开始](#快速开始) · [API 文档](./docs/API.md) · [常见问题](./docs/FAQ.md) 
 
 ---
 
