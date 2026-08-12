@@ -16,7 +16,6 @@
   - [SqlQueryL](#sqlqueryl)
 - [执行类](#执行类)
   - [SqlExec](#sqlexec)
-  - [SqlCreateDb](#sqlcreatedb)
 - [数据导入类](#数据导入类)
   - [SqlCreateTable](#sqlcreatetable)
   - [SqlImportCsv](#sqlimportcsv)
@@ -283,34 +282,6 @@
 **注意事项**
 - 不能用于 SELECT 查询（不会返回结果集）
 - DDL 语句（CREATE/DROP）返回 0
-
----
-
-### SqlCreateDb
-
-创建一个新的空 SQLite 数据库文件。
-
-> **注意**：此函数非必要。`SqlCreateTable` 和 `SqlImportCsv` 在目标数据库不存在时会自动创建空数据库。仅在需要显式创建空数据库文件时使用。
-
-**语法**
-```excel
-=SqlCreateDb(db_path)
-```
-
-**参数**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `db_path` | 字符串 | 是 | 新数据库文件的完整路径 |
-
-**返回值**
-
-成功返回 `"Database created"`，失败返回对应错误码。
-
-**示例**
-```excel
-=SqlCreateDb("C:\data\new_project.db")
-```
 
 ---
 
