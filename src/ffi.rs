@@ -488,7 +488,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlconnect",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlConnect",
         "db_path",
         "SQLite",
@@ -500,7 +500,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqldisconnect",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlDisconnect",
         "handle_or_path",
         "SQLite",
@@ -512,7 +512,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlquery",
-        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q'], false, false, false),
         "SqlQuery",
         "conn_str, sql",
         "SQLite",
@@ -525,7 +525,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlqueryp",
-        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], false, false, false),
         "SqlQueryP",
         "conn_str, sql, p1, p2, p3, p4, p5",
         "SQLite",
@@ -543,7 +543,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlqueryl",
-        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q'], false, false, false),
         "SqlQueryL",
         "conn_str, sql, limit, offset",
         "SQLite",
@@ -558,7 +558,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlexec",
-        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q'], false, false, false),
         "SqlExec",
         "conn_str, sql",
         "SQLite",
@@ -571,7 +571,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqltables",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlTables",
         "conn_str",
         "SQLite",
@@ -583,7 +583,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlversion",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlVersion",
         "conn_str",
         "SQLite",
@@ -595,7 +595,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlschema",
-        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q'], false, false, false),
         "SqlSchema",
         "conn_str, table_name",
         "SQLite",
@@ -608,7 +608,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlpragma",
-        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q'], false, false, false),
         "SqlPragma",
         "conn_str, pragma_name",
         "SQLite",
@@ -622,7 +622,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlqueryscalar",
-        &build_type_string('Q', &['Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q'], false, false, false),
         "SqlQueryScalar",
         "conn_str, sql",
         "SQLite",
@@ -635,7 +635,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlappendtable",
-        &build_type_string('Q', &['Q', 'Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q', 'Q'], false, false, false),
         "SqlAppendTable",
         "db_path, table_name, data",
         "SQLite",
@@ -649,7 +649,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlexportcsv",
-        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q'], false, false, false),
         "SqlExportCsv",
         "conn_str, sql, csv_path, delimiter",
         "SQLite",
@@ -664,7 +664,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlbegin",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlBegin",
         "conn_str",
         "SQLite",
@@ -676,7 +676,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlcommit",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlCommit",
         "conn_str",
         "SQLite",
@@ -688,7 +688,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlrollback",
-        &build_type_string('Q', &['Q'], true, false, false),
+        &build_type_string('Q', &['Q'], false, false, false),
         "SqlRollback",
         "conn_str",
         "SQLite",
@@ -700,7 +700,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlcreatetable",
-        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q'], false, false, false),
         "SqlCreateTable",
         "db_path, table_name, data, columns, types",
         "SQLite",
@@ -716,7 +716,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
 
     let _ = reg.add(
         "sqlimportcsv",
-        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], false, false, false),
         "SqlImportCsv",
         "conn_str, csv_path, table_name, has_header, delimiter, columns, types",
         "SQLite",

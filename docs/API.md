@@ -14,11 +14,19 @@
   - [SqlQuery](#sqlquery)
   - [SqlQueryP](#sqlqueryp)
   - [SqlQueryL](#sqlqueryl)
+  - [SqlQueryScalar](#sqlqueryscalar)
 - [执行类](#执行类)
   - [SqlExec](#sqlexec)
+- [事务控制类](#事务控制类)
+  - [SqlBegin](#sqlbegin)
+  - [SqlCommit](#sqlcommit)
+  - [SqlRollback](#sqlrollback)
 - [数据导入类](#数据导入类)
   - [SqlCreateTable](#sqlcreatetable)
   - [SqlImportCsv](#sqlimportcsv)
+  - [SqlAppendTable](#sqlappendtable)
+- [数据导出类](#数据导出类)
+  - [SqlExportCsv](#sqlexportcsv)
 - [元数据类](#元数据类)
   - [SqlTables](#sqltables)
   - [SqlVersion](#sqlversion)
@@ -75,7 +83,7 @@
 **示例**
 ```excel
 =SqlConnect()                    ' 内存数据库
-=SqlConnect("C:\data\app.db")    ' 文件数据库
+=SqlConnect("C:\data\app.db")  ' 文件数据库
 ```
 
 **注意事项**
@@ -207,14 +215,16 @@
 
 **示例**
 ```excel
-=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)         ' 第 1 页
-=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)      ' 第 2 页
-=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50)  ' 最新 50 条
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)      ' 第 1 页
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)   ' 第 2 页
+=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50) ' 最新 50 条
 ```
 
 **注意事项**
 - 如果 `sql` 中已包含 `LIMIT`（不区分大小写），则不会追加分页，避免冲突
 - 子查询中含 `LIMIT` 也会被检测到，此时分页不会生效（保守策略）
+
+---
 
 ### SqlQueryScalar
 
@@ -296,6 +306,12 @@
 =SqlBegin([conn_str])
 ```
 
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄，省略使用内存数据库 |
+
 **返回值**
 
 成功返回 `"Transaction started"`。
@@ -303,6 +319,7 @@
 **示例**
 ```excel
 =SqlBegin()
+=SqlBegin("app.db")
 ```
 
 ---
@@ -316,6 +333,12 @@
 =SqlCommit([conn_str])
 ```
 
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄，省略使用内存数据库 |
+
 **返回值**
 
 成功返回 `"Transaction committed"`。
@@ -323,6 +346,7 @@
 **示例**
 ```excel
 =SqlCommit()
+=SqlCommit("app.db")
 ```
 
 ---
@@ -336,6 +360,12 @@
 =SqlRollback([conn_str])
 ```
 
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄，省略使用内存数据库 |
+
 **返回值**
 
 成功返回 `"Transaction rolled back"`。
@@ -343,6 +373,7 @@
 **示例**
 ```excel
 =SqlRollback()
+=SqlRollback("app.db")
 ```
 
 **注意事项**
@@ -484,7 +515,7 @@
 
 **语法**
 ```excel
-=SqlExportCsv([conn_str], sql, csv_path, [delimiter], [encoding])
+=SqlExportCsv([conn_str], sql, csv_path, [delimiter])
 ```
 
 **参数**
@@ -495,7 +526,6 @@
 | `sql` | 字符串 | 是 | SELECT 语句 |
 | `csv_path` | 字符串 | 是 | 输出 CSV 文件的完整路径 |
 | `delimiter` | 字符串 | 否 | 分隔符，默认逗号 `,` |
-| `encoding` | 字符串 | 否 | 编码（`UTF-8` 或 `GBK`），默认 `UTF-8` |
 
 **返回值**
 
@@ -505,13 +535,13 @@
 ```excel
 =SqlExportCsv(,"SELECT * FROM sales", "C:\data\report.csv")
 =SqlExportCsv(,"SELECT * FROM sales", "C:\data\report.tsv", "\t")
-=SqlExportCsv(,"SELECT * FROM sales", "C:\data\report.csv", ",", "GBK")
 ```
 
 **注意事项**
 - 输出文件路径的父目录必须存在
 - 如果文件已存在，会被覆盖
 - BLOB 字段以十六进制字符串形式导出
+- 编码固定为 UTF-8（如需 GBK，请先用 `SqlQuery` 获取结果，再通过其他工具转换）
 
 ---
 
@@ -609,52 +639,10 @@ PRAGMA 查询结果，格式取决于具体 PRAGMA。
 **示例**
 ```excel
 =SqlPragma(,"journal_mode")           ' 返回当前日志模式
-=SqlPragma(,"table_info(users)")     ' 同 SqlSchema
-=SqlPragma(,"index_list(orders)")    ' 查看表的索引
-=SqlPragma(,"foreign_key_list(items)") ' 查看外键约束
+=SqlPragma(,"table_info(users)")      ' 返回 users 表结构
+=SqlPragma("app.db","foreign_keys")  ' 检查外键约束是否启用
 ```
 
 **注意事项**
-- PRAGMA 名称中的分号 `;` 和引号 `"` 会被自动过滤，防止注入
-- 部分 PRAGMA（如 `VACUUM`）不返回结果集，建议使用 `SqlExec` 执行
-
----
-
-## 类型映射参考
-
-### Excel → SQLite（参数绑定）
-
-| Excel 输入 | SQLite 类型 |
-|-----------|------------|
-| 数字（整数） | INTEGER |
-| 数字（小数） | REAL |
-| 文本 | TEXT |
-| 布尔（TRUE/FALSE） | INTEGER（1/0） |
-| 空单元格 | NULL |
-
-### SQLite → Excel（结果返回）
-
-| SQLite 类型 | Excel 显示 |
-|-----------|-----------|
-| INTEGER | 数字 |
-| REAL | 数字 |
-| TEXT | 文本 |
-| BLOB | 十六进制字符串（如 `DEADBEEF`） |
-| NULL | 空字符串 `""` |
-
----
-
-## 自定义类型别名
-
-在 `SqlCreateTable` 和 `SqlImportCsv` 的 `types` 参数中，以下别名会被自动映射为标准 SQLite 类型：
-
-| 输入别名 | 映射为 |
-|---------|--------|
-| `INT`, `BIGINT`, `SMALLINT`, `TINYINT` | `INTEGER` |
-| `FLOAT`, `DOUBLE`, `DOUBLE PRECISION` | `REAL` |
-| `VARCHAR`, `CHAR`, `STRING`, `NVARCHAR`, `CLOB` | `TEXT` |
-| `BINARY`, `VARBINARY` | `BLOB` |
-| `DECIMAL`, `NUMBER` | `NUMERIC` |
-| `BOOL`, `BOOLEAN` | `INTEGER` |
-| `DATE`, `DATETIME`, `TIMESTAMP`, `TIME` | `TEXT` |
-| 其他 / 空 | `TEXT` |
+- 部分 PRAGMA 只返回标量值，部分返回表格数据
+- 修改数据库状态的 PRAGMA（如 `journal_mode = WAL`）需要写权限
