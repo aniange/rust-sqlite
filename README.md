@@ -2,7 +2,7 @@
 
 > 在 Excel / WPS 中直接运行 SQLite，支持 SQL 查询、参数化防注入、CSV 智能导入、自动类型推断。
 
-[安装指南](./docs/Install.md) · [快速开始](#快速开始) · [API 文档](./docs/API.md) · [常见问题](./docs/FAQ.md) 
+[安装指南](./docs/Install.md) · [快速开始](#快速开始) · [API 文档](./docs/API.md) · [常见问题](./docs/FAQ.md) · [更新日志](./CHANGELOG.md)
 
 ---
 
@@ -30,7 +30,7 @@
 
 ### 1. 查询现有数据库
 ```excel
-=SqlQuery("C:\\data\\test.db", "SELECT * FROM sales LIMIT 10")
+=SqlQuery("C:\data\test.db", "SELECT * FROM sales LIMIT 10")
 ```
 
 ### 2. 从 Excel 区域建表
@@ -44,9 +44,29 @@
 =SqlQueryP(,"SELECT * FROM users WHERE name = ? AND age > ?", "Alice", 18)
 ```
 
-### 4. 导入 CSV 文件
+### 4. 追加数据到已有表
 ```excel
-=SqlImportCsv(,"C:\\data\\file.csv", "imported_table")
+=SqlAppendTable(,'orders', A101:D200)
+```
+> 将 Excel 区域的数据追加到已有表中，列数必须匹配。
+
+### 5. 导出查询结果到 CSV
+```excel
+=SqlExportCsv(,'SELECT * FROM orders WHERE amount > 1000', 'C:\data\report.csv')
+```
+
+### 6. 事务控制
+```excel
+=SqlBegin()
+=SqlExec(,'UPDATE account SET balance = balance - 100 WHERE id = 1')
+=SqlExec(,'UPDATE account SET balance = balance + 100 WHERE id = 2')
+=SqlCommit()
+```
+> 多步骤操作需要原子性时使用，出错可执行 `=SqlRollback()` 回滚。
+
+### 7. 导入 CSV 文件
+```excel
+=SqlImportCsv(,"C:\data\file.csv", "imported_table")
 ```
 > 自动识别 UTF-8 / GBK 编码，支持自定义分隔符。
 
@@ -60,6 +80,10 @@
 | `SqlQueryP` | 参数化查询（防注入） | ⭐⭐ |
 | `SqlQueryL` | 分页查询（LIMIT/OFFSET） | ⭐⭐ |
 | `SqlExec` | 执行 INSERT/UPDATE/CREATE | ⭐ |
+| `SqlQueryScalar` | 返回单个标量值 | ⭐ |
+| `SqlAppendTable` | 追加数据到已有表 | ⭐⭐ |
+| `SqlExportCsv` | 查询结果导出 CSV | ⭐⭐ |
+| `SqlBegin` / `SqlCommit` / `SqlRollback` | 事务控制 | ⭐⭐⭐ |
 | `SqlCreateTable` | 从 Excel 区域建表 | ⭐⭐ |
 | `SqlImportCsv` | 导入 CSV 文件 | ⭐⭐ |
 | `SqlConnect` / `SqlDisconnect` | 连接管理 | ⭐ |

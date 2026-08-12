@@ -77,6 +77,19 @@ pub fn sqlqueryl_impl(conn_str: &str, sql: &str, limit: Option<i64>, offset: Opt
     sqlquery_impl(conn_str, &final_sql)
 }
 
+pub fn sqlqueryscalar_impl(conn_str: &str, sql: &str) -> Result<XLOPER12, String> {
+    with_conn(conn_str, |conn| {
+        let mut stmt = conn.prepare(sql)
+            .map_err(|e| format!("Prepare failed: {}", e))?;
+
+        let value: rusqlite::types::Value = stmt.query_row([], |row| {
+            row.get::<_, rusqlite::types::Value>(0)
+        }).map_err(|e| format!("Query failed: {}", e))?;
+
+        Ok(sqlite_value_to_xloper(&value))
+    })
+}
+
 pub fn build_result_array(col_names: &[String], rows_data: &[Vec<Value>], col_count: usize) -> Result<XLOPER12, String> {
     if col_count == 0 {
         return Ok(XLOPER12::from_str(""));

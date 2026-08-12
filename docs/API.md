@@ -37,10 +37,10 @@
 | 形式 | 示例 | 说明 |
 |------|------|------|
 | **省略 / 空字符串** | `=SqlQuery(,"SELECT ...")` | 使用共享内存数据库，数据在 Excel 进程存活期间保持 |
-| **文件路径** | `=SqlQuery("C:\\data\\test.db", ...)` | 直接指定 SQLite 数据库文件的完整路径 |
+| **文件路径** | `=SqlQuery("C:\data\test.db", ...)` | 直接指定 SQLite 数据库文件的完整路径 |
 | **连接句柄** | `=SqlQuery("conn_1", ...)` | 使用 `SqlConnect` 返回的句柄，连接会被缓存复用 |
 
-> 路径中的反斜杠在 Excel 公式中需要写成 `\\`，或使用正斜杠 `/`。
+> 路径中的正斜杠 `/` 和反斜杠 `\` 均可使用。
 
 ### 错误代码
 
@@ -152,6 +152,38 @@
 - 如果 `sql` 中已包含 `LIMIT`（不区分大小写），则不会追加分页，避免冲突
 - 子查询中含 `LIMIT` 也会被检测到，此时分页不会生效（保守策略）
 
+### SqlQueryScalar
+
+执行查询并返回第一行第一列的单个标量值。
+
+**语法**
+```excel
+=SqlQueryScalar([conn_str], sql)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `sql` | 字符串 | 是 | 应返回单行单列的 SELECT 语句 |
+
+**返回值**
+
+单个值（数字、文本或空字符串）。
+
+**示例**
+```excel
+=SqlQueryScalar(,"SELECT COUNT(*) FROM users")
+=SqlQueryScalar(,"SELECT MAX(score) FROM exam")
+=SqlQueryScalar("app.db","SELECT name FROM users WHERE id = 1")
+```
+
+**注意事项**
+- 查询无结果时会返回 `#VALUE!`
+- 即使查询返回多行多列，也只取第一行第一列
+- 适合 COUNT/SUM/MAX/MIN 等聚合查询
+
 ---
 
 ## 执行类
@@ -193,6 +225,8 @@
 
 创建一个新的空 SQLite 数据库文件。
 
+> **注意**：此函数非必要。`SqlCreateTable` 和 `SqlImportCsv` 在目标数据库不存在时会自动创建空数据库。仅在需要显式创建空数据库文件时使用。
+
 **语法**
 ```excel
 =SqlCreateDb(db_path)
@@ -210,8 +244,75 @@
 
 **示例**
 ```excel
-=SqlCreateDb("C:\\data\\new_project.db")
+=SqlCreateDb("C:\data\new_project.db")
 ```
+
+---
+
+## 事务控制类
+
+### SqlBegin
+
+开始一个数据库事务。
+
+**语法**
+```excel
+=SqlBegin([conn_str])
+```
+
+**返回值**
+
+成功返回 `"Transaction started"`。
+
+**示例**
+```excel
+=SqlBegin()
+```
+
+---
+
+### SqlCommit
+
+提交当前事务，使所有更改永久生效。
+
+**语法**
+```excel
+=SqlCommit([conn_str])
+```
+
+**返回值**
+
+成功返回 `"Transaction committed"`。
+
+**示例**
+```excel
+=SqlCommit()
+```
+
+---
+
+### SqlRollback
+
+回滚当前事务，撤销所有未提交的更改。
+
+**语法**
+```excel
+=SqlRollback([conn_str])
+```
+
+**返回值**
+
+成功返回 `"Transaction rolled back"`。
+
+**示例**
+```excel
+=SqlRollback()
+```
+
+**注意事项**
+- 事务与连接绑定，同一连接上的所有操作在事务提交前不会持久化
+- 内存数据库的事务在 Excel 进程退出后同样会丢失（如果未提交）
+- 建议配合连接句柄使用，确保多步操作使用同一连接
 
 ---
 
@@ -287,13 +388,13 @@
 **示例**
 ```excel
 ' 默认：逗号分隔，首行为列名
-=SqlImportCsv(,"C:\\data\\sales.csv", "sales")
+=SqlImportCsv(,"C:\data\sales.csv", "sales")
 
 ' 制表符分隔，无表头
-=SqlImportCsv(,"C:\\data\\data.tsv", "raw_data", FALSE, "\t")
+=SqlImportCsv(,"C:\data\data.tsv", "raw_data", FALSE, "\t")
 
 ' 自定义列名和类型
-=SqlImportCsv(,"C:\\data\\file.csv", "imported", TRUE, ",", {"id","value"}, {"INTEGER","REAL"})
+=SqlImportCsv(,"C:\data\file.csv", "imported", TRUE, ",", {"id","value"}, {"INTEGER","REAL"})
 ```
 
 **注意事项**
@@ -301,6 +402,80 @@
 - 如果 CSV 包含 BOM（UTF-8 签名），会自动处理
 - 大文件使用事务批量插入，性能优于逐条 INSERT
 - 空行会被跳过，但格式错误的行可能导致 `#VALUE!`
+
+---
+
+### SqlAppendTable
+
+将 Excel 数据区域追加到已有表中。
+
+**语法**
+```excel
+=SqlAppendTable([db_path], table_name, data)
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `db_path` | 字符串 | 否 | 数据库路径或句柄 |
+| `table_name` | 字符串 | 是 | 要追加数据的已有表名 |
+| `data` | 区域 | 是 | Excel 二维数组（不含表头） |
+
+**返回值**
+
+成功返回 `"Table 'xxx': N rows appended"`。
+
+**示例**
+```excel
+' 将 A101:D200 的数据追加到 orders 表
+=SqlAppendTable(,"orders", A101:D200)
+```
+
+**注意事项**
+- 目标表必须已存在，否则返回 `#VALUE!`
+- 数据列数必须与目标表列数完全一致
+- 空单元格会被当作空字符串 `""` 插入
+- 使用事务批量插入，性能优于逐条执行 INSERT
+
+---
+
+## 数据导出类
+
+### SqlExportCsv
+
+执行查询并将结果导出为 CSV 文件。
+
+**语法**
+```excel
+=SqlExportCsv([conn_str], sql, csv_path, [delimiter], [encoding])
+```
+
+**参数**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `conn_str` | 字符串 | 否 | 数据库路径或句柄 |
+| `sql` | 字符串 | 是 | SELECT 语句 |
+| `csv_path` | 字符串 | 是 | 输出 CSV 文件的完整路径 |
+| `delimiter` | 字符串 | 否 | 分隔符，默认逗号 `,` |
+| `encoding` | 字符串 | 否 | 编码（`UTF-8` 或 `GBK`），默认 `UTF-8` |
+
+**返回值**
+
+成功返回 `"Exported N rows to 'path'"`。
+
+**示例**
+```excel
+=SqlExportCsv(,"SELECT * FROM sales", "C:\data\report.csv")
+=SqlExportCsv(,"SELECT * FROM sales", "C:\data\report.tsv", "\t")
+=SqlExportCsv(,"SELECT * FROM sales", "C:\data\report.csv", ",", "GBK")
+```
+
+**注意事项**
+- 输出文件路径的父目录必须存在
+- 如果文件已存在，会被覆盖
+- BLOB 字段以十六进制字符串形式导出
 
 ---
 
@@ -328,13 +503,12 @@
 **示例**
 ```excel
 =SqlConnect()                    ' 内存数据库
-=SqlConnect("C:\\data\\app.db")  ' 文件数据库
+=SqlConnect("C:\data\app.db")  ' 文件数据库
 ```
 
 **注意事项**
 - 句柄对应的连接会被缓存，后续使用该句柄的公式无需重新打开文件
 - 内存数据库的句柄固定为 `"conn_memory"`
-- 文件路径中的反斜杠在 Excel 中需写成 `\\`
 
 ---
 
@@ -361,7 +535,7 @@
 ```excel
 =SqlDisconnect("conn_1")
 =SqlDisconnect("conn_memory")
-=SqlDisconnect("C:\\data\\app.db")
+=SqlDisconnect("C:\data\app.db")
 ```
 
 **注意事项**

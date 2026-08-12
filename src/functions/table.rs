@@ -125,3 +125,78 @@ pub fn sqlcreatetable_impl(
         safe_table, col_count, row_count
     ))
 }
+
+pub fn sqlappendtable_impl(
+    conn: &Connection,
+    table_name: &str,
+    data_grid: Vec<Vec<String>>,
+) -> Result<String, String> {
+    if data_grid.is_empty() {
+        return Err("Data array is empty".to_string());
+    }
+
+    let data_col_count = data_grid.iter().map(|r| r.len()).max().unwrap_or(0);
+    if data_col_count == 0 {
+        return Err("Data array has no columns".to_string());
+    }
+
+    let safe_table = table_name.replace('"', "").trim().to_string();
+    if safe_table.is_empty() {
+        return Err("Table name cannot be empty".to_string());
+    }
+
+    // 检查表是否存在
+    let table_exists: bool = conn.query_row(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        [&safe_table],
+        |_| Ok(true),
+    ).unwrap_or(false);
+
+    if !table_exists {
+        return Err(format!("Table '{}' does not exist. Use SqlCreateTable first.", safe_table));
+    }
+
+    // 获取表的列数
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_table))
+        .map_err(|e| format!("Prepare failed: {}", e))?;
+    let col_count: usize = stmt.query_map([], |_| Ok(()))
+        .map_err(|e| format!("Query failed: {}", e))?
+        .count();
+
+    if data_col_count != col_count {
+        return Err(format!(
+            "Data column count ({}) does not match table column count ({})",
+            data_col_count, col_count
+        ));
+    }
+
+    let row_count = data_grid.len();
+    if row_count > 0 {
+        let placeholders = (0..col_count).map(|_| "?").collect::<Vec<_>>().join(", ");
+        let insert_sql = format!(
+            r#"INSERT INTO "{}" VALUES ({})"#,
+            safe_table,
+            placeholders
+        );
+
+        let mut stmt = conn.prepare(&insert_sql)
+            .map_err(|e| format!("Prepare insert failed: {}", e))?;
+
+        let tx = conn.unchecked_transaction()
+            .map_err(|e| format!("Begin transaction failed: {}", e))?;
+
+        for row in &data_grid {
+            let mut padded = row.clone();
+            padded.resize(col_count, String::new());
+            stmt.execute(rusqlite::params_from_iter(padded.iter()))
+                .map_err(|e| format!("Insert failed: {}", e))?;
+        }
+
+        tx.commit().map_err(|e| format!("Commit failed: {}", e))?;
+    }
+
+    Ok(format!(
+        "Table '{}': {} rows appended",
+        safe_table, row_count
+    ))
+}
