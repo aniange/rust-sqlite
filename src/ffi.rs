@@ -5,7 +5,7 @@ use crate::xloper::{extract_conn_str, xloper_to_string_grid, xloper_to_string_li
 use crate::error::error_to_xloper;
 use crate::functions::query::{sqlquery_impl, sqlqueryp_impl, sqlqueryl_impl, sqlqueryscalar_impl};
 use crate::functions::exec::{sqlexec_impl, sqlbegin_impl, sqlcommit_impl, sqlrollback_impl};
-use crate::functions::table::sqlcreatetable_impl;
+use crate::functions::table::{sqlcreatetable_impl, sqlappendtable_impl};
 use crate::functions::csv_import::sqlimportcsv_impl;
 use crate::functions::csv_export::sqlexportcsv_impl;
 use crate::functions::metadata::{sqltables_impl, sqlversion_impl, sqlschema_impl, sqlpragma_impl};
@@ -292,7 +292,6 @@ pub extern "system" fn sqlexportcsv(
     sql: *mut XLOPER12,
     csv_path: *mut XLOPER12,
     delimiter: *mut XLOPER12,
-    encoding: *mut XLOPER12,
 ) -> *mut XLOPER12 {
     let conn_raw = unsafe { match extract_conn_str(conn_str) {
         Some(s) => s,
@@ -316,22 +315,12 @@ pub extern "system" fn sqlexportcsv(
         } else {
             match (*delimiter).as_string() {
                 Some(s) if !s.is_empty() => s.as_bytes()[0],
-                _ => b',
+                _ => b','
             }
         }
     };
 
-    let enc = unsafe {
-        if (*encoding).base_type() == XLTYPE_MISSING || (*encoding).base_type() == XLTYPE_NIL {
-            "UTF-8".to_string()
-        } else {
-            (*encoding).as_string().unwrap_or("UTF-8".to_string())
-        }
-    };
-
-    match with_conn(&conn, |conn| {
-        sqlexportcsv_impl(conn, &query, &path, delim, &enc)
-    }) {
+    match sqlexportcsv_impl(&conn, &query, &path, delim) {
         Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
         Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
     }
@@ -662,7 +651,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
         "sqlexportcsv",
         &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q'], true, false, false),
         "SqlExportCsv",
-        "conn_str, sql, csv_path, delimiter, encoding",
+        "conn_str, sql, csv_path, delimiter",
         "SQLite",
         "Execute query and export results to a CSV file",
         &[
@@ -670,7 +659,6 @@ pub extern "system" fn xlAutoOpen() -> i32 {
             "The SQL SELECT statement to export",
             "Full path for the output CSV file",
             "Optional: delimiter character, default comma ','",
-            "Optional: encoding (UTF-8 or GBK), default UTF-8",
         ],
     );
 

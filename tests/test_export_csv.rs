@@ -13,7 +13,7 @@ fn test_sqlexportcsv_basic() {
     conn.execute("INSERT INTO t VALUES (1, 'Alice'), (2, 'Bob')", []).unwrap();
     drop(conn);
 
-    let result = sqlexportcsv_impl(&db_path, "SELECT * FROM t", &csv_path, b',', "UTF-8");
+    let result = sqlexportcsv_impl(&db_path, "SELECT * FROM t", &csv_path, b',');
     assert!(result.is_ok(), "{}", result.unwrap_err());
     assert!(result.unwrap().contains("2 rows"));
 
@@ -39,7 +39,7 @@ fn test_sqlexportcsv_tab_delimiter() {
     conn.execute("INSERT INTO t VALUES (1)", []).unwrap();
     drop(conn);
 
-    let result = sqlexportcsv_impl(&db_path, "SELECT * FROM t", &csv_path, b'\t', "UTF-8");
+    let result = sqlexportcsv_impl(&db_path, "SELECT * FROM t", &csv_path, b'\t');
     assert!(result.is_ok());
 
     let mut content = String::new();

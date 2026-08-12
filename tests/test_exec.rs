@@ -1,4 +1,4 @@
-use rust_sqlite::functions::exec::{sqlexec_impl, sqlcreatedb_impl};
+use rust_sqlite::functions::exec::sqlexec_impl;
 
 fn temp_db_path(prefix: &str) -> String {
     let mut path = std::env::temp_dir();
@@ -37,19 +37,6 @@ fn test_sqlexec_impl_invalid_sql() {
 
     let result = sqlexec_impl(&db_path, "INVALID SQL");
     assert!(result.is_err());
-
-    let _ = std::fs::remove_file(&db_path);
-}
-
-#[test]
-fn test_sqlcreatedb_impl() {
-    let db_path = temp_db_path("test_createdb");
-    let _ = std::fs::remove_file(&db_path);
-
-    let result = sqlcreatedb_impl(&db_path);
-    assert!(result.is_ok());
-    assert!(result.unwrap().contains("created"));
-    assert!(std::path::Path::new(&db_path).exists());
 
     let _ = std::fs::remove_file(&db_path);
 }

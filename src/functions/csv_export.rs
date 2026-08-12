@@ -1,5 +1,4 @@
 use csv::WriterBuilder;
-use encoding_rs::UTF_8;
 use crate::conn::with_conn;
 
 pub fn sqlexportcsv_impl(
@@ -7,7 +6,6 @@ pub fn sqlexportcsv_impl(
     sql: &str,
     csv_path: &str,
     delimiter: u8,
-    encoding: &str,
 ) -> Result<String, String> {
     with_conn(conn_str, |conn| {
         let mut stmt = conn.prepare(sql)
