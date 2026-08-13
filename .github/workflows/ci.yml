@@ -136,4 +136,8 @@ jobs:
           files: |
             artifacts/rust_sqlite_x64.xll
             artifacts/rust_sqlite_x86.xll
-          generate_release_notes: true   # 如果你想隐藏特定 commit，可改为 false 并手动提供 body
+          generate_release_notes: false   # 如果需要自定义内容，可改为 false 并手动提供 body
+          body: |
+            ## 🎯 说明
+            - **x64** 适配 64 位 Excel
+            - **x86** 适配 32 位 Excel
