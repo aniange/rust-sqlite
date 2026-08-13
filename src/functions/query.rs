@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use xll_rs::types::*;
 use rusqlite::types::Value;
 use crate::conn::with_conn;

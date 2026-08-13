@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use rusqlite::Connection;
 use csv::StringRecord;
 use encoding_rs::{UTF_8, GB18030};

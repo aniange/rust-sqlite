@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use rusqlite::Connection;
 use crate::utils::types::{infer_column_type, make_valid_columns, normalize_sql_type};
 

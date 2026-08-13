@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use rusqlite::{Connection, OpenFlags};
 use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;

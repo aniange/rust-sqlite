@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use xll_rs::types::*;
 use crate::conn::with_conn;
 use crate::functions::query::build_result_array;

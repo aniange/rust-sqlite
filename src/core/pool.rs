@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use rusqlite::Connection;
 use std::collections::HashMap;
 

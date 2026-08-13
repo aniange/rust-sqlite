@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use xll_rs::types::*;
 
 pub unsafe fn xloper_to_string_grid(op: *const XLOPER12) -> Option<Vec<Vec<String>>> {

@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use xll_rs::types::*;
 use xll_rs::register::{Reg, build_type_string};
 use crate::conn::{MEMORY_DB_URI, with_conn, resolve_conn, get_handle_map, get_conn_cache, get_handle_counter, clear_all};

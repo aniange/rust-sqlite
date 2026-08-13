@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use xll_rs::types::*;
 
 pub fn error_to_xloper(err: &str) -> XLOPER12 {

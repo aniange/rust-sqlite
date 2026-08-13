@@ -1,3 +1,4 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::conn::with_conn;
 
 pub fn sqlexec_impl(conn_str: &str, sql: &str) -> Result<usize, String> {
