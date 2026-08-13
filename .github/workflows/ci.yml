@@ -1,3 +1,150 @@
+# name: CI
+
+# on:
+#   push:
+#     branches: [main, master]
+#     tags: ["v*"]
+#   pull_request:
+#     branches: [main, master]
+
+# env:
+#   CARGO_TERM_COLOR: always
+
+# jobs:
+#   fmt:
+#     name: Check formatting
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: dtolnay/rust-toolchain@stable
+#         with:
+#           components: rustfmt
+#       - run: cargo fmt -- --check
+
+#   test:
+#     name: Test
+#     runs-on: windows-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: dtolnay/rust-toolchain@stable
+#         with:
+#           components: clippy
+#       - uses: Swatinem/rust-cache@v2
+#       - run: cargo clippy --all-targets --all-features
+#       - run: cargo test --all-targets --all-features
+
+#   build-xll:
+#     name: Build XLL (${{ matrix.target }})
+#     if: startsWith(github.ref, 'refs/tags/')
+#     runs-on: windows-latest
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc]
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: dtolnay/rust-toolchain@stable
+#         with:
+#           targets: ${{ matrix.target }}
+#       - uses: Swatinem/rust-cache@v2
+#         with:
+#           key: ${{ matrix.target }}
+#       - run: cargo build --release --target ${{ matrix.target }}
+
+#       # 原始验证逻辑（保持不变）
+#       - name: Verify XLL artifact
+#         shell: pwsh
+#         run: |
+#           $hostTarget = (rustc -vV | Select-String "host:").Line.Split()[1]
+#           $buildTarget = "${{ matrix.target }}"
+#           if ($buildTarget -eq $hostTarget) {
+#             $xll = "target/release/rust_sqlite.xll"
+#             $dll = "target/release/rust_sqlite.dll"
+#           } else {
+#             $xll = "target/$buildTarget/release/rust_sqlite.xll"
+#             $dll = "target/$buildTarget/release/rust_sqlite.dll"
+#           }
+#           if (Test-Path $xll) {
+#             Write-Host "XLL found: $xll"
+#           } elseif (Test-Path $dll) {
+#             Copy-Item $dll $xll -Force
+#             Write-Host "Copied DLL -> XLL: $xll"
+#           } else {
+#             Write-Error "No .xll or .dll found"
+#             exit 1
+#           }
+
+#       - uses: actions/upload-artifact@v4
+#         with:
+#           name: rust_sqlite_${{ matrix.target }}
+#           path: target/**/release/rust_sqlite.xll   # 保持原样，保留通配符
+#           if-no-files-found: error
+#           retention-days: 7
+
+#   release:
+#     name: Create Release
+#     needs: build-xll
+#     if: startsWith(github.ref, 'refs/tags/')
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       - name: Download x64 artifact
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: rust_sqlite_x86_64-pc-windows-msvc
+#           path: artifacts/x64   # 下载后保留原目录结构
+
+#       - name: Download x86 artifact
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: rust_sqlite_i686-pc-windows-msvc
+#           path: artifacts/x86
+
+#       # 调试：显示下载后的完整目录结构
+#       - name: List downloaded files
+#         run: |
+#           echo "=== artifacts/x64/ contents ==="
+#           find artifacts/x64 -type f
+#           echo "=== artifacts/x86/ contents ==="
+#           find artifacts/x86 -type f
+
+#       # 使用 find 定位所有 .xll 文件，并重命名移动到 artifacts/ 根目录
+#       - name: Rename artifacts
+#         run: |
+#           # 处理 x64
+#           x64_file=$(find artifacts/x64 -name "*.xll" | head -1)
+#           if [ -n "$x64_file" ]; then
+#             mv "$x64_file" artifacts/rust_sqlite_x64.xll
+#             echo "Moved $x64_file -> artifacts/rust_sqlite_x64.xll"
+#           else
+#             echo "No .xll found in artifacts/x64/"
+#             exit 1
+#           fi
+
+#           # 处理 x86
+#           x86_file=$(find artifacts/x86 -name "*.xll" | head -1)
+#           if [ -n "$x86_file" ]; then
+#             mv "$x86_file" artifacts/rust_sqlite_x86.xll
+#             echo "Moved $x86_file -> artifacts/rust_sqlite_x86.xll"
+#           else
+#             echo "No .xll found in artifacts/x86/"
+#             exit 1
+#           fi
+
+#           # 列出最终文件
+#           ls -la artifacts/
+
+#       - name: Create Release
+#         uses: softprops/action-gh-release@v2
+#         with:
+#           files: |
+#             artifacts/rust_sqlite_x64.xll
+#             artifacts/rust_sqlite_x86.xll
+#           generate_release_notes: true
+
 name: CI
 
 on:
@@ -74,10 +221,30 @@ jobs:
             exit 1
           }
 
+      # [优化] 准备扁平化的 artifact：将 .xll 复制到 staging/ 目录，不保留子目录
+      - name: Prepare artifact for upload
+        shell: pwsh
+        run: |
+          $target = "${{ matrix.target }}"
+          $hostTarget = (rustc -vV | Select-String "host:").Line.Split()[1]
+          if ($target -eq $hostTarget) {
+            $src = "target/release/rust_sqlite.xll"
+          } else {
+            $src = "target/$target/release/rust_sqlite.xll"
+          }
+          # 如果 .xll 不存在（理论上不会），尝试从 .dll 复制（但验证步骤已保证）
+          if (-not (Test-Path $src)) {
+            $src = $src -replace '\.xll$', '.dll'
+          }
+          New-Item -ItemType Directory -Force -Path staging
+          Copy-Item $src staging/rust_sqlite.xll -Force
+          Write-Host "Prepared staging/rust_sqlite.xll"
+
+      # [优化] 上传扁平化的文件（path 指向具体文件，而非通配符或目录）
       - uses: actions/upload-artifact@v4
         with:
           name: rust_sqlite_${{ matrix.target }}
-          path: target/**/release/rust_sqlite.xll   # 保持原样，保留通配符
+          path: staging/rust_sqlite.xll
           if-no-files-found: error
           retention-days: 7
 
@@ -95,7 +262,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: rust_sqlite_x86_64-pc-windows-msvc
-          path: artifacts/x64   # 下载后保留原目录结构
+          path: artifacts/x64
 
       - name: Download x86 artifact
         uses: actions/download-artifact@v4
@@ -103,38 +270,11 @@ jobs:
           name: rust_sqlite_i686-pc-windows-msvc
           path: artifacts/x86
 
-      # 调试：显示下载后的完整目录结构
-      - name: List downloaded files
-        run: |
-          echo "=== artifacts/x64/ contents ==="
-          find artifacts/x64 -type f
-          echo "=== artifacts/x86/ contents ==="
-          find artifacts/x86 -type f
-
-      # 使用 find 定位所有 .xll 文件，并重命名移动到 artifacts/ 根目录
+      # [优化] 因为 artifact 内部只有单个文件，路径固定为 rust_sqlite.xll
       - name: Rename artifacts
         run: |
-          # 处理 x64
-          x64_file=$(find artifacts/x64 -name "*.xll" | head -1)
-          if [ -n "$x64_file" ]; then
-            mv "$x64_file" artifacts/rust_sqlite_x64.xll
-            echo "Moved $x64_file -> artifacts/rust_sqlite_x64.xll"
-          else
-            echo "No .xll found in artifacts/x64/"
-            exit 1
-          fi
-
-          # 处理 x86
-          x86_file=$(find artifacts/x86 -name "*.xll" | head -1)
-          if [ -n "$x86_file" ]; then
-            mv "$x86_file" artifacts/rust_sqlite_x86.xll
-            echo "Moved $x86_file -> artifacts/rust_sqlite_x86.xll"
-          else
-            echo "No .xll found in artifacts/x86/"
-            exit 1
-          fi
-
-          # 列出最终文件
+          mv artifacts/x64/rust_sqlite.xll artifacts/rust_sqlite_x64.xll
+          mv artifacts/x86/rust_sqlite.xll artifacts/rust_sqlite_x86.xll
           ls -la artifacts/
 
       - name: Create Release
@@ -143,4 +283,4 @@ jobs:
           files: |
             artifacts/rust_sqlite_x64.xll
             artifacts/rust_sqlite_x86.xll
-          generate_release_notes: true
+          generate_release_notes: true   # 如果你想隐藏特定 commit，可改为 false 并手动提供 body
