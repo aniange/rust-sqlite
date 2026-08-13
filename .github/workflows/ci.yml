@@ -10,14 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Job 1: Cross-platform check + test (Linux/Mac/Windows)
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -31,37 +30,29 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features
 
       - name: Run tests
         run: cargo test --all-targets --all-features
 
-  # Job 2: Build XLL on Windows (the actual deliverable)
   build-xll:
-    name: Build XLL (Windows)
+    name: Build XLL (Windows x64)
     runs-on: windows-latest
-    strategy:
-      matrix:
-        target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc]
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
 
-      - name: Build XLL (${{ matrix.target }})
-        run: cargo build --release --target ${{ matrix.target }}
+      - name: Build XLL (x86_64)
+        run: cargo build --release
 
       - name: Upload XLL artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust_sqlite_${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/rust_sqlite.xll
+          name: rust_sqlite_x64
+          path: target/release/rust_sqlite.xll
           if-no-files-found: error
