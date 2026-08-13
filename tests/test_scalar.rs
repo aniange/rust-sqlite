@@ -14,13 +14,18 @@ fn test_sqlqueryscalar_text() {
 
 #[test]
 fn test_sqlqueryscalar_from_table() {
-    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    let db_path = format!("test_scalar_{}.db", std::process::id());
+    let _ = std::fs::remove_file(&db_path);
+
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
     conn.execute("CREATE TABLE t (id INTEGER, name TEXT)", []).unwrap();
     conn.execute("INSERT INTO t VALUES (1, 'Alice'), (2, 'Bob')", []).unwrap();
     drop(conn);
 
-    let result = sqlqueryscalar_impl(":memory:", "SELECT name FROM t WHERE id = 1");
+    let result = sqlqueryscalar_impl(&db_path, "SELECT name FROM t WHERE id = 1");
     assert!(result.is_ok());
+
+    let _ = std::fs::remove_file(&db_path);
 }
 
 #[test]

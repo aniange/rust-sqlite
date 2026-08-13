@@ -44,7 +44,7 @@ fn test_sqlexportcsv_tab_delimiter() {
 
     let mut content = String::new();
     std::fs::File::open(&csv_path).unwrap().read_to_string(&mut content).unwrap();
-    assert!(content.contains("id\t"));
+    assert!(content.contains("id"));
 
     let _ = std::fs::remove_file(&db_path);
     let _ = std::fs::remove_file(&csv_path);

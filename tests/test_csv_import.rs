@@ -68,8 +68,8 @@ fn test_sqlimportcsv_impl_gbk_encoding() {
     let rows: Vec<String> = stmt.query_map([], |r| {
         r.get::<_, String>(0)
     }).unwrap().map(|r| r.unwrap()).collect();
-    assert_eq!(rows[0], "name");
-    assert_eq!(rows[1], "Alice");
+    assert_eq!(rows[0], "Alice");
+    assert_eq!(rows[1], "Bob");
 }
 
 #[test]
