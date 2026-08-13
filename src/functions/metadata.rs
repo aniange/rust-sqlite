@@ -73,7 +73,7 @@ pub fn sqlschema_impl(conn_str: &str, table_name: &str) -> Result<XLOPER12, Stri
 
 pub fn sqlpragma_impl(conn_str: &str, pragma_name: &str) -> Result<XLOPER12, String> {
     with_conn(conn_str, |conn| {
-        let safe_pragma = pragma_name.replace(';', "").replace('"', "");
+        let safe_pragma = pragma_name.replace([';', '"'], "");
         let sql = format!("PRAGMA {}", safe_pragma);
         let mut stmt = conn.prepare(&sql)
             .map_err(|e| format!("Prepare failed: {}", e))?;
