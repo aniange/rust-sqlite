@@ -3,12 +3,15 @@ use std::path::PathBuf;
 fn main() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
-    if target_os != "windows" || target_env != "msvc" { return; }
-    if std::env::var("CARGO_CFG_TEST").is_ok() { return; }
+    if target_os != "windows" || target_env != "msvc" {
+        return;
+    }
+    if std::env::var("CARGO_CFG_TEST").is_ok() {
+        return;
+    }
 
-    let manifest_dir = PathBuf::from(
-        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string())
-    );
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()));
     let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
     let target = std::env::var("TARGET").unwrap_or_default();
     let host = std::env::var("HOST").unwrap_or_default();
@@ -24,8 +27,8 @@ fn main() {
     std::fs::create_dir_all(&out_dir).unwrap();
 
     // 关键修复3：用 CARGO_CRATE_NAME（rust_sqlite）而非 CARGO_PKG_NAME（rust-sqlite）
-    let crate_name = std::env::var("CARGO_CRATE_NAME")
-        .unwrap_or_else(|_| "rust_sqlite".to_string());
+    let crate_name =
+        std::env::var("CARGO_CRATE_NAME").unwrap_or_else(|_| "rust_sqlite".to_string());
 
     println!(
         "cargo:rustc-cdylib-link-arg=/OUT:{}",
