@@ -1,6 +1,8 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 use xll_rs::types::*;
 
+///# Safety
+/// `op` must be a valid, non-null pointer to an XLOPER12 allocated by Excel.
 pub unsafe fn xloper_to_string_grid(op: *const XLOPER12) -> Option<Vec<Vec<String>>> {
     if op.is_null() || (*op).base_type() != XLTYPE_MULTI {
         return None;
@@ -41,6 +43,8 @@ pub unsafe fn xloper_to_string_grid(op: *const XLOPER12) -> Option<Vec<Vec<Strin
     Some(result)
 }
 
+///# Safety
+/// `op` must be a valid, non-null pointer to an XLOPER12 allocated by Excel.
 pub unsafe fn xloper_to_string_list(op: *const XLOPER12) -> Option<Vec<String>> {
     match (*op).base_type() {
         XLTYPE_MULTI => {
@@ -81,6 +85,8 @@ pub unsafe fn xloper_to_string_list(op: *const XLOPER12) -> Option<Vec<String>> 
     }
 }
 
+///# Safety
+/// `op` must be a valid, non-null pointer to an XLOPER12 allocated by Excel.
 pub unsafe fn extract_conn_str(op: *mut XLOPER12) -> Option<String> {
     if (*op).base_type() == XLTYPE_MISSING {
         Some(crate::conn::MEMORY_DB_URI.to_string())
