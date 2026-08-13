@@ -12,8 +12,8 @@
 
 | 你的 Office 类型 | 下载文件 |
 |------------------|----------|
-| 64 位 Excel | `rust_sqlite.xll`（x64） |
-| 32 位 Excel / WPS | `rust_sqlite.xll`（x86） |
+| 64 位 Excel / WPS | `rust_sqlite_x64.xll` |
+| 32 位 Excel / WPS | `rust_sqlite_x86.xll` |
 
 > 如何判断 Office 位数？Excel → 文件 → 账户 → 关于 Excel，查看是否包含 "64 位"。
 
@@ -23,14 +23,14 @@
 
 1. 打开 Excel，点击 **文件 → 选项 → 加载项**
 2. 底部 **管理** 下拉框选择 **Excel 加载项**，点击 **转到**
-3. 点击 **浏览**，选择下载的 `rust_sqlite.xll`
+3. 点击 **浏览**，选择下载的 `rust_sqlite_x??.xll`
 4. 勾选 **rust_sqlite**，点击 **确定**
 5. 重启 Excel
 
 ### WPS
 
 1. 打开 WPS 表格，点击 **开发工具 → 加载项**
-2. 点击 **浏览**，选择下载的 `rust_sqlite.xll`
+2. 点击 **浏览**，选择下载的 `rust_sqlite_x??.xll`
 3. 勾选并确定，重启 WPS
 
 > 如果看不到 "开发工具" 选项卡：WPS → 选项 → 自定义功能区 → 勾选 "开发工具"。
