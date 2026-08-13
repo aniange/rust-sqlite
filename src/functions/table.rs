@@ -18,7 +18,7 @@ pub fn sqlcreatetable_impl(
         return Err("Data array has no columns".to_string());
     }
 
-    let has_explicit_columns = explicit_columns.is_some();
+    // let has_explicit_columns = explicit_columns.is_some();
 
     let (col_names, data_rows) = match explicit_columns {
         Some(cols) => {
@@ -55,11 +55,12 @@ pub fn sqlcreatetable_impl(
             types
         }
         None => {
-            let infer_source: Vec<Vec<String>> = if has_explicit_columns && !data_rows.is_empty() {
+            let infer_source: Vec<Vec<String>> = /*if has_explicit_columns && !data_rows.is_empty() {
                 data_rows.clone()
             } else {
                 data_rows.clone()
-            };
+            };*/
+            data_rows.clone();
             (0..col_count)
                 .map(|col_idx| {
                     let col_values: Vec<String> = infer_source.iter()
