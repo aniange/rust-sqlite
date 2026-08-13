@@ -9,7 +9,7 @@
 ## 功能亮点
 
 - **零配置查询**：`=SqlQuery("SELECT * FROM users")` 直接返回二维数组
-- **参数化防注入**：`SqlQueryP` 支持 `?` 占位符，杜绝 SQL 注入
+- **参数化防注入**：`SqlQueryP` 支持 `?` 占位符，彻底杜绝 SQL 注入
 - **CSV 智能导入**：自动识别 UTF-8 / GBK 编码，自动推断列类型
 - **内存数据库**：省略路径即可使用共享内存 DB，跨工作表数据互通
 - **分页查询**：`SqlQueryL` 自动追加 LIMIT/OFFSET，百万级数据不卡死
@@ -76,6 +76,7 @@
 
 | 函数 | 用途 | 复杂度 |
 |------|------|--------|
+| `SqlConnect` / `SqlDisconnect` | 连接管理 | ⭐ |
 | `SqlQuery` | 执行 SELECT 返回结果集 | ⭐ |
 | `SqlQueryP` | 参数化查询（防注入） | ⭐⭐ |
 | `SqlQueryL` | 分页查询（LIMIT/OFFSET） | ⭐⭐ |
@@ -86,7 +87,6 @@
 | `SqlBegin` / `SqlCommit` / `SqlRollback` | 事务控制 | ⭐⭐⭐ |
 | `SqlCreateTable` | 从 Excel 区域建表 | ⭐⭐ |
 | `SqlImportCsv` | 导入 CSV 文件 | ⭐⭐ |
-| `SqlConnect` / `SqlDisconnect` | 连接管理 | ⭐ |
 | `SqlTables` / `SqlSchema` / `SqlPragma` | 元数据查询 | ⭐⭐ |
 
 > 📖 **完整 API 文档**（含每个函数的参数表、返回值、错误码、详细示例）→ [docs/API.md](./docs/API.md)

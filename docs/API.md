@@ -83,7 +83,7 @@
 **示例**
 ```excel
 =SqlConnect()                    ' 内存数据库
-=SqlConnect("C:\data\app.db")    ' 文件数据库
+=SqlConnect("C:\data\app.db")  ' 文件数据库
 ```
 
 **注意事项**
@@ -154,7 +154,7 @@
 
 **注意事项**
 - 返回大量数据时 Excel 可能卡顿，建议配合 `SqlQueryL` 分页使用
-- 日期时间以 INTEGER（整数）或 TEXT 形式返回，需手动设置单元格格式
+- 日期时间以 INTEGER（Unix 时间戳）或 TEXT 形式返回，需手动设置单元格格式
 
 ---
 
@@ -182,7 +182,7 @@
 **示例**
 ```excel
 =SqlQueryP(,"SELECT * FROM users WHERE name = ? AND age > ?", "Alice", 18)
-=SqlQueryP("conn_1","SELECT * FROM logs WHERE level = ? AND date = ?", "ERROR", "2026-01-01")
+=SqlQueryP("conn_1","SELECT * FROM logs WHERE level = ? AND date = ?", "ERROR", "2024-01-01")
 ```
 
 **注意事项**
@@ -215,9 +215,9 @@
 
 **示例**
 ```excel
-=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)         ' 第 1 页
-=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)      ' 第 2 页
-=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50)  ' 最新 50 条
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)      ' 第 1 页
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)   ' 第 2 页
+=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50) ' 最新 50 条
 ```
 
 **注意事项**
@@ -640,7 +640,7 @@ PRAGMA 查询结果，格式取决于具体 PRAGMA。
 ```excel
 =SqlPragma(,"journal_mode")           ' 返回当前日志模式
 =SqlPragma(,"table_info(users)")      ' 返回 users 表结构
-=SqlPragma("app.db","foreign_keys")   ' 检查外键约束是否启用
+=SqlPragma("app.db","foreign_keys")  ' 检查外键约束是否启用
 ```
 
 **注意事项**
