@@ -30,10 +30,17 @@ pub unsafe fn xloper_to_string_grid(op: *const XLOPER12) -> Option<Vec<Vec<Strin
                 XLTYPE_STR => cell.as_string().unwrap_or_default(),
                 XLTYPE_NUM => {
                     let n = cell.as_f64().unwrap_or(0.0);
-                    if n.fract() == 0.0 { format!("{:.0}", n) } else { n.to_string() }
+                    if n.fract() == 0.0 {
+                        format!("{:.0}", n)
+                    } else {
+                        n.to_string()
+                    }
                 }
                 XLTYPE_INT => format!("{:.0}", cell.as_f64().unwrap_or(0.0)),
-                XLTYPE_BOOL => cell.as_bool().map(|b| if b { "1".to_string() } else { "0".to_string() }).unwrap_or_default(),
+                XLTYPE_BOOL => cell
+                    .as_bool()
+                    .map(|b| if b { "1".to_string() } else { "0".to_string() })
+                    .unwrap_or_default(),
                 _ => String::new(),
             };
             row.push(s);
@@ -63,7 +70,11 @@ pub unsafe fn xloper_to_string_list(op: *const XLOPER12) -> Option<Vec<String>> 
                         XLTYPE_STR => cell.as_string().unwrap_or_default(),
                         XLTYPE_NUM => {
                             let n = cell.as_f64().unwrap_or(0.0);
-                            if n.fract() == 0.0 { format!("{:.0}", n) } else { n.to_string() }
+                            if n.fract() == 0.0 {
+                                format!("{:.0}", n)
+                            } else {
+                                n.to_string()
+                            }
                         }
                         XLTYPE_INT => format!("{:.0}", cell.as_f64().unwrap_or(0.0)),
                         XLTYPE_BOOL => cell.as_bool().map(|b| b.to_string()).unwrap_or_default(),
@@ -77,10 +88,17 @@ pub unsafe fn xloper_to_string_list(op: *const XLOPER12) -> Option<Vec<String>> 
         XLTYPE_STR => Some(vec![(*op).as_string().unwrap_or_default()]),
         XLTYPE_NUM => {
             let n = (*op).as_f64().unwrap_or(0.0);
-            Some(vec![if n.fract() == 0.0 { format!("{:.0}", n) } else { n.to_string() }])
+            Some(vec![if n.fract() == 0.0 {
+                format!("{:.0}", n)
+            } else {
+                n.to_string()
+            }])
         }
         XLTYPE_INT => Some(vec![format!("{:.0}", (*op).as_f64().unwrap_or(0.0))]),
-        XLTYPE_BOOL => Some(vec![(*op).as_bool().map(|b| b.to_string()).unwrap_or_default()]),
+        XLTYPE_BOOL => Some(vec![(*op)
+            .as_bool()
+            .map(|b| b.to_string())
+            .unwrap_or_default()]),
         _ => None,
     }
 }
@@ -106,7 +124,10 @@ pub fn sqlite_value_to_xloper(value: &rusqlite::types::Value) -> XLOPER12 {
         Value::Real(f) => XLOPER12::from_f64(*f),
         Value::Text(s) => XLOPER12::from_str(s),
         Value::Blob(b) => {
-            let hex = b.iter().map(|byte| format!("{:02X}", byte)).collect::<String>();
+            let hex = b
+                .iter()
+                .map(|byte| format!("{:02X}", byte))
+                .collect::<String>();
             XLOPER12::from_str(&hex)
         }
     }

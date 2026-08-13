@@ -1,5 +1,5 @@
 use rusqlite::Connection;
-use rust_sqlite::functions::table::{sqlcreatetable_impl, sqlappendtable_impl};
+use rust_sqlite::functions::table::{sqlappendtable_impl, sqlcreatetable_impl};
 
 #[test]
 fn test_sqlappendtable_basic() {
@@ -22,7 +22,9 @@ fn test_sqlappendtable_basic() {
     assert!(result.unwrap().contains("2 rows appended"));
 
     // 验证总行数
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0)).unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM users", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(count, 3);
 }
 

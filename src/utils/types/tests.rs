@@ -14,37 +14,58 @@ fn test_infer_column_type_all_empty_strings() {
 
 #[test]
 fn test_infer_column_type_integer() {
-    assert_eq!(infer_column_type(&["123".to_string(), "456".to_string()]), "INTEGER");
+    assert_eq!(
+        infer_column_type(&["123".to_string(), "456".to_string()]),
+        "INTEGER"
+    );
 }
 
 #[test]
 fn test_infer_column_type_integer_with_empty() {
-    assert_eq!(infer_column_type(&["123".to_string(), "".to_string(), "456".to_string()]), "INTEGER");
+    assert_eq!(
+        infer_column_type(&["123".to_string(), "".to_string(), "456".to_string()]),
+        "INTEGER"
+    );
 }
 
 #[test]
 fn test_infer_column_type_integer_negative() {
-    assert_eq!(infer_column_type(&["-123".to_string(), "0".to_string()]), "INTEGER");
+    assert_eq!(
+        infer_column_type(&["-123".to_string(), "0".to_string()]),
+        "INTEGER"
+    );
 }
 
 #[test]
 fn test_infer_column_type_real() {
-    assert_eq!(infer_column_type(&["3.14".to_string(), "2.71".to_string()]), "REAL");
+    assert_eq!(
+        infer_column_type(&["3.14".to_string(), "2.71".to_string()]),
+        "REAL"
+    );
 }
 
 #[test]
 fn test_infer_column_type_real_mixed_with_int() {
-    assert_eq!(infer_column_type(&["3.14".to_string(), "2".to_string()]), "REAL");
+    assert_eq!(
+        infer_column_type(&["3.14".to_string(), "2".to_string()]),
+        "REAL"
+    );
 }
 
 #[test]
 fn test_infer_column_type_text() {
-    assert_eq!(infer_column_type(&["hello".to_string(), "world".to_string()]), "TEXT");
+    assert_eq!(
+        infer_column_type(&["hello".to_string(), "world".to_string()]),
+        "TEXT"
+    );
 }
 
 #[test]
 fn test_infer_column_type_text_mixed_with_int() {
-    assert_eq!(infer_column_type(&["123".to_string(), "abc".to_string()]), "TEXT");
+    assert_eq!(
+        infer_column_type(&["123".to_string(), "abc".to_string()]),
+        "TEXT"
+    );
 }
 
 // ========== make_valid_columns tests ==========
@@ -79,7 +100,12 @@ fn test_make_valid_columns_pads_to_expected() {
 
 #[test]
 fn test_make_valid_columns_truncates_to_expected() {
-    let input = vec!["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string()];
+    let input = vec![
+        "a".to_string(),
+        "b".to_string(),
+        "c".to_string(),
+        "d".to_string(),
+    ];
     let result = make_valid_columns(input, 2);
     assert_eq!(result, vec!["a", "b"]);
 }

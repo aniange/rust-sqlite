@@ -14,9 +14,12 @@ fn test_sqlcreatetable_impl_basic() {
     assert!(result.unwrap().contains("users"));
 
     let mut stmt = conn.prepare("SELECT * FROM users").unwrap();
-    let rows: Vec<_> = stmt.query_map([], |r| {
-        Ok((r.get::<_, i64>(0).unwrap(), r.get::<_, String>(1).unwrap()))
-    }).unwrap().collect();
+    let rows: Vec<_> = stmt
+        .query_map([], |r| {
+            Ok((r.get::<_, i64>(0).unwrap(), r.get::<_, String>(1).unwrap()))
+        })
+        .unwrap()
+        .collect();
     assert_eq!(rows.len(), 2);
 }
 
@@ -32,7 +35,11 @@ fn test_sqlcreatetable_impl_explicit_columns() {
     assert!(result.is_ok());
 
     let mut stmt = conn.prepare("PRAGMA table_info(users2)").unwrap();
-    let col_names: Vec<String> = stmt.query_map([], |r| r.get::<_, String>(1)).unwrap().map(|x| x.unwrap()).collect();
+    let col_names: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .map(|x| x.unwrap())
+        .collect();
     assert_eq!(col_names, vec!["uid", "uname"]);
 }
 
@@ -49,7 +56,11 @@ fn test_sqlcreatetable_impl_explicit_types() {
     assert!(result.is_ok());
 
     let mut stmt = conn.prepare("PRAGMA table_info(typed_table)").unwrap();
-    let col_types: Vec<String> = stmt.query_map([], |r| r.get::<_, String>(2)).unwrap().map(|x| x.unwrap()).collect();
+    let col_types: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(2))
+        .unwrap()
+        .map(|x| x.unwrap())
+        .collect();
     assert_eq!(col_types, vec!["INTEGER", "REAL"]);
 }
 
@@ -65,14 +76,13 @@ fn test_sqlcreatetable_impl_empty_data() {
 #[test]
 fn test_sqlcreatetable_impl_idempotent() {
     let conn = Connection::open_in_memory().unwrap();
-    let data = vec![
-        vec!["id".to_string()],
-        vec!["1".to_string()],
-    ];
+    let data = vec![vec!["id".to_string()], vec!["1".to_string()]];
     let _ = sqlcreatetable_impl(&conn, "idempotent", data.clone(), None, None).unwrap();
     let result2 = sqlcreatetable_impl(&conn, "idempotent", data, None, None);
     assert!(result2.is_ok());
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM idempotent", [], |r| r.get(0)).unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM idempotent", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(count, 1);
 }
 
@@ -88,6 +98,10 @@ fn test_sqlcreatetable_impl_auto_infer_types() {
     assert!(result.is_ok());
 
     let mut stmt = conn.prepare("PRAGMA table_info(auto_types)").unwrap();
-    let col_types: Vec<String> = stmt.query_map([], |r| r.get::<_, String>(2)).unwrap().map(|x| x.unwrap()).collect();
+    let col_types: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(2))
+        .unwrap()
+        .map(|x| x.unwrap())
+        .collect();
     assert_eq!(col_types, vec!["INTEGER", "TEXT", "REAL"]);
 }

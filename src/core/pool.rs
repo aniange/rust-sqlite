@@ -14,7 +14,9 @@ impl Default for ConnectionPool {
 
 impl ConnectionPool {
     pub fn new() -> Self {
-        Self { cache: HashMap::new() }
+        Self {
+            cache: HashMap::new(),
+        }
     }
 
     pub fn get(&mut self, path: &str) -> Result<&mut Connection, rusqlite::Error> {

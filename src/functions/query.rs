@@ -1,28 +1,28 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
-use xll_rs::types::*;
-use rusqlite::types::Value;
 use crate::conn::with_conn;
 use crate::xloper::sqlite_value_to_xloper;
+use rusqlite::types::Value;
+use xll_rs::types::*;
 
 pub fn sqlquery_impl(conn_str: &str, sql: &str) -> Result<XLOPER12, String> {
     with_conn(conn_str, |conn| {
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| format!("Prepare failed: {}", e))?;
 
         let col_count = stmt.column_count();
-        let col_names: Vec<String> = stmt.column_names()
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let col_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
 
         let mut rows_data: Vec<Vec<Value>> = Vec::new();
-        let row_iter = stmt.query_map([], |row| {
-            let mut values = Vec::with_capacity(col_count);
-            for i in 0..col_count {
-                values.push(row.get::<_, Value>(i)?);
-            }
-            Ok(values)
-        }).map_err(|e| format!("Query failed: {}", e))?;
+        let row_iter = stmt
+            .query_map([], |row| {
+                let mut values = Vec::with_capacity(col_count);
+                for i in 0..col_count {
+                    values.push(row.get::<_, Value>(i)?);
+                }
+                Ok(values)
+            })
+            .map_err(|e| format!("Query failed: {}", e))?;
 
         for row in row_iter {
             rows_data.push(row.map_err(|e| format!("Row error: {}", e))?);
@@ -34,23 +34,23 @@ pub fn sqlquery_impl(conn_str: &str, sql: &str) -> Result<XLOPER12, String> {
 
 pub fn sqlqueryp_impl(conn_str: &str, sql: &str, params: &[Value]) -> Result<XLOPER12, String> {
     with_conn(conn_str, |conn| {
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| format!("Prepare failed: {}", e))?;
 
         let col_count = stmt.column_count();
-        let col_names: Vec<String> = stmt.column_names()
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let col_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
 
         let mut rows_data: Vec<Vec<Value>> = Vec::new();
-        let row_iter = stmt.query_map(rusqlite::params_from_iter(params), |row| {
-            let mut values = Vec::with_capacity(col_count);
-            for i in 0..col_count {
-                values.push(row.get::<_, Value>(i)?);
-            }
-            Ok(values)
-        }).map_err(|e| format!("Query failed: {}", e))?;
+        let row_iter = stmt
+            .query_map(rusqlite::params_from_iter(params), |row| {
+                let mut values = Vec::with_capacity(col_count);
+                for i in 0..col_count {
+                    values.push(row.get::<_, Value>(i)?);
+                }
+                Ok(values)
+            })
+            .map_err(|e| format!("Query failed: {}", e))?;
 
         for row in row_iter {
             rows_data.push(row.map_err(|e| format!("Row error: {}", e))?);
@@ -73,25 +73,35 @@ fn append_pagination(sql: &str, limit: Option<i64>, offset: Option<i64>) -> Stri
     final_sql
 }
 
-pub fn sqlqueryl_impl(conn_str: &str, sql: &str, limit: Option<i64>, offset: Option<i64>) -> Result<XLOPER12, String> {
+pub fn sqlqueryl_impl(
+    conn_str: &str,
+    sql: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<XLOPER12, String> {
     let final_sql = append_pagination(sql, limit, offset);
     sqlquery_impl(conn_str, &final_sql)
 }
 
 pub fn sqlqueryscalar_impl(conn_str: &str, sql: &str) -> Result<XLOPER12, String> {
     with_conn(conn_str, |conn| {
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| format!("Prepare failed: {}", e))?;
 
-        let value: rusqlite::types::Value = stmt.query_row([], |row| {
-            row.get::<_, rusqlite::types::Value>(0)
-        }).map_err(|e| format!("Query failed: {}", e))?;
+        let value: rusqlite::types::Value = stmt
+            .query_row([], |row| row.get::<_, rusqlite::types::Value>(0))
+            .map_err(|e| format!("Query failed: {}", e))?;
 
         Ok(sqlite_value_to_xloper(&value))
     })
 }
 
-pub fn build_result_array(col_names: &[String], rows_data: &[Vec<Value>], col_count: usize) -> Result<XLOPER12, String> {
+pub fn build_result_array(
+    col_names: &[String],
+    rows_data: &[Vec<Value>],
+    col_count: usize,
+) -> Result<XLOPER12, String> {
     if col_count == 0 {
         return Ok(XLOPER12::from_str(""));
     }

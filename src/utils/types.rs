@@ -1,6 +1,7 @@
 /// Infer SQLite column type from sample values
 pub fn infer_column_type(values: &[String]) -> String {
-    let non_empty: Vec<&str> = values.iter()
+    let non_empty: Vec<&str> = values
+        .iter()
         .filter(|s| !s.is_empty())
         .map(|s| s.as_str())
         .collect();
@@ -24,14 +25,18 @@ pub fn infer_column_type(values: &[String]) -> String {
 
 /// Sanitize column names: remove quotes, fill empty names, pad/truncate to expected count
 pub fn make_valid_columns(names: Vec<String>, expected_count: usize) -> Vec<String> {
-    let mut result: Vec<String> = names.into_iter().enumerate().map(|(i, name)| {
-        let trimmed = name.replace('"', "").trim().to_string();
-        if trimmed.is_empty() {
-            format!("col_{}", i + 1)
-        } else {
-            trimmed
-        }
-    }).collect();
+    let mut result: Vec<String> = names
+        .into_iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let trimmed = name.replace('"', "").trim().to_string();
+            if trimmed.is_empty() {
+                format!("col_{}", i + 1)
+            } else {
+                trimmed
+            }
+        })
+        .collect();
 
     while result.len() < expected_count {
         result.push(format!("col_{}", result.len() + 1));

@@ -27,7 +27,8 @@ where
             )
         } else {
             Connection::open(path)
-        }.map_err(|e| format!("Open DB failed: {}", e))?;
+        }
+        .map_err(|e| format!("Open DB failed: {}", e))?;
         cache.insert(path.to_string(), conn);
     }
     let conn = cache.get(path).unwrap();
@@ -39,7 +40,10 @@ pub fn resolve_conn(input: &str) -> String {
         return MEMORY_DB_URI.to_string();
     }
     let handles = HANDLE_MAP.lock().unwrap();
-    handles.get(input).cloned().unwrap_or_else(|| input.to_string())
+    handles
+        .get(input)
+        .cloned()
+        .unwrap_or_else(|| input.to_string())
 }
 
 pub fn get_handle_map() -> &'static Mutex<HashMap<String, String>> {

@@ -9,8 +9,10 @@ fn test_sqlexportcsv_basic() {
     let _ = std::fs::remove_file(&csv_path);
 
     let conn = rusqlite::Connection::open(&db_path).unwrap();
-    conn.execute("CREATE TABLE t (id INTEGER, name TEXT)", []).unwrap();
-    conn.execute("INSERT INTO t VALUES (1, 'Alice'), (2, 'Bob')", []).unwrap();
+    conn.execute("CREATE TABLE t (id INTEGER, name TEXT)", [])
+        .unwrap();
+    conn.execute("INSERT INTO t VALUES (1, 'Alice'), (2, 'Bob')", [])
+        .unwrap();
     drop(conn);
 
     let result = sqlexportcsv_impl(&db_path, "SELECT * FROM t", &csv_path, b',');
@@ -19,7 +21,10 @@ fn test_sqlexportcsv_basic() {
 
     // 验证文件内容
     let mut content = String::new();
-    std::fs::File::open(&csv_path).unwrap().read_to_string(&mut content).unwrap();
+    std::fs::File::open(&csv_path)
+        .unwrap()
+        .read_to_string(&mut content)
+        .unwrap();
     assert!(content.contains("id,name"));
     assert!(content.contains("1,Alice"));
 
@@ -43,7 +48,10 @@ fn test_sqlexportcsv_tab_delimiter() {
     assert!(result.is_ok());
 
     let mut content = String::new();
-    std::fs::File::open(&csv_path).unwrap().read_to_string(&mut content).unwrap();
+    std::fs::File::open(&csv_path)
+        .unwrap()
+        .read_to_string(&mut content)
+        .unwrap();
     assert!(content.contains("id"));
 
     let _ = std::fs::remove_file(&db_path);

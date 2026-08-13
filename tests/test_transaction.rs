@@ -1,4 +1,4 @@
-use rust_sqlite::functions::exec::{sqlexec_impl, sqlbegin_impl, sqlcommit_impl, sqlrollback_impl};
+use rust_sqlite::functions::exec::{sqlbegin_impl, sqlcommit_impl, sqlexec_impl, sqlrollback_impl};
 
 #[test]
 fn test_transaction_begin_commit() {
@@ -22,7 +22,9 @@ fn test_transaction_begin_commit() {
 
     // 验证数据已提交
     let conn = rusqlite::Connection::open(&db_path).unwrap();
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0)).unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(count, 1);
     drop(conn);
 
@@ -51,7 +53,9 @@ fn test_transaction_begin_rollback() {
 
     // 验证数据已回滚，只有事务前的 1 条
     let conn = rusqlite::Connection::open(&db_path).unwrap();
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0)).unwrap();
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM t", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(count, 1);
     drop(conn);
 

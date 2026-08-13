@@ -15,9 +15,16 @@ fn test_sqlimportcsv_impl_basic() {
     assert!(result.is_ok(), "{}", result.unwrap_err());
 
     let mut stmt = conn.prepare("SELECT * FROM students").unwrap();
-    let rows: Vec<_> = stmt.query_map([], |r| {
-        Ok((r.get::<_, i64>(0).unwrap(), r.get::<_, String>(1).unwrap(), r.get::<_, f64>(2).unwrap()))
-    }).unwrap().collect();
+    let rows: Vec<_> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0).unwrap(),
+                r.get::<_, String>(1).unwrap(),
+                r.get::<_, f64>(2).unwrap(),
+            ))
+        })
+        .unwrap()
+        .collect();
     assert_eq!(rows.len(), 2);
 }
 
@@ -48,7 +55,9 @@ fn test_sqlimportcsv_impl_tab_delimiter() {
     let result = sqlimportcsv_impl(&conn, path, "tsv_table", true, b'\t', None, None);
     assert!(result.is_ok());
 
-    let mut stmt = conn.prepare("SELECT name FROM tsv_table WHERE id = 1").unwrap();
+    let mut stmt = conn
+        .prepare("SELECT name FROM tsv_table WHERE id = 1")
+        .unwrap();
     let name: String = stmt.query_row([], |r| r.get(0)).unwrap();
     assert_eq!(name, "Alice");
 }
@@ -65,9 +74,11 @@ fn test_sqlimportcsv_impl_gbk_encoding() {
     assert!(result.is_ok(), "{}", result.unwrap_err());
 
     let mut stmt = conn.prepare("SELECT * FROM gbk_table").unwrap();
-    let rows: Vec<String> = stmt.query_map([], |r| {
-        r.get::<_, String>(0)
-    }).unwrap().map(|r| r.unwrap()).collect();
+    let rows: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
     assert_eq!(rows[0], "Alice");
     assert_eq!(rows[1], "Bob");
 }
@@ -93,17 +104,31 @@ fn test_sqlimportcsv_impl_custom_columns_and_types() {
     let path = temp.path().to_str().unwrap();
 
     let cols = Some(vec!["x".to_string(), "y".to_string(), "z".to_string()]);
-    let types = Some(vec!["INTEGER".to_string(), "TEXT".to_string(), "REAL".to_string()]);
+    let types = Some(vec![
+        "INTEGER".to_string(),
+        "TEXT".to_string(),
+        "REAL".to_string(),
+    ]);
     let result = sqlimportcsv_impl(&conn, path, "custom", true, b',', cols, types);
     assert!(result.is_ok());
 
     let mut stmt = conn.prepare("PRAGMA table_info(custom)").unwrap();
-    let info: Vec<(String, String)> = stmt.query_map([], |r| {
-        Ok((r.get::<_, String>(1).unwrap(), r.get::<_, String>(2).unwrap()))
-    }).unwrap().map(|x| x.unwrap()).collect();
-    assert_eq!(info, vec![
-        ("x".to_string(), "INTEGER".to_string()),
-        ("y".to_string(), "TEXT".to_string()),
-        ("z".to_string(), "REAL".to_string()),
-    ]);
+    let info: Vec<(String, String)> = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(1).unwrap(),
+                r.get::<_, String>(2).unwrap(),
+            ))
+        })
+        .unwrap()
+        .map(|x| x.unwrap())
+        .collect();
+    assert_eq!(
+        info,
+        vec![
+            ("x".to_string(), "INTEGER".to_string()),
+            ("y".to_string(), "TEXT".to_string()),
+            ("z".to_string(), "REAL".to_string()),
+        ]
+    );
 }

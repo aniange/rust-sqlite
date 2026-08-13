@@ -1,8 +1,8 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
-use rusqlite::Connection;
-use csv::StringRecord;
-use encoding_rs::{UTF_8, GB18030};
 use crate::utils::types::{infer_column_type, make_valid_columns, normalize_sql_type};
+use csv::StringRecord;
+use encoding_rs::{GB18030, UTF_8};
+use rusqlite::Connection;
 
 pub fn sqlimportcsv_impl(
     conn: &Connection,
@@ -13,8 +13,7 @@ pub fn sqlimportcsv_impl(
     explicit_columns: Option<Vec<String>>,
     explicit_types: Option<Vec<String>>,
 ) -> Result<String, String> {
-    let raw = std::fs::read(csv_path)
-        .map_err(|e| format!("Read CSV failed: {}", e))?;
+    let raw = std::fs::read(csv_path).map_err(|e| format!("Read CSV failed: {}", e))?;
 
     let (cow, _, had_errors) = UTF_8.decode(&raw);
     let text = if had_errors {
@@ -56,9 +55,7 @@ pub fn sqlimportcsv_impl(
         let cols = make_valid_columns(cols, col_count);
         (cols, all_rows)
     } else {
-        let cols: Vec<String> = (0..col_count)
-            .map(|i| format!("col_{}", i + 1))
-            .collect();
+        let cols: Vec<String> = (0..col_count).map(|i| format!("col_{}", i + 1)).collect();
         (cols, all_rows)
     };
 
@@ -75,7 +72,8 @@ pub fn sqlimportcsv_impl(
             let sample: Vec<&StringRecord> = data_rows.iter().take(1000).collect();
             (0..col_count)
                 .map(|col_idx| {
-                    let values: Vec<String> = sample.iter()
+                    let values: Vec<String> = sample
+                        .iter()
                         .map(|row| row.get(col_idx).unwrap_or("").to_string())
                         .collect();
                     infer_column_type(&values)
@@ -91,7 +89,9 @@ pub fn sqlimportcsv_impl(
 
     let _ = conn.execute(&format!(r#"DROP TABLE IF EXISTS "{}""#, safe_table), []);
 
-    let cols_def: Vec<String> = col_names.iter().zip(col_types.iter())
+    let cols_def: Vec<String> = col_names
+        .iter()
+        .zip(col_types.iter())
         .map(|(name, ty)| {
             let safe_name = name.replace('"', "");
             let valid_type = normalize_sql_type(ty);
@@ -99,11 +99,7 @@ pub fn sqlimportcsv_impl(
         })
         .collect();
 
-    let create_sql = format!(
-        r#"CREATE TABLE "{}" ({})"#,
-        safe_table,
-        cols_def.join(", ")
-    );
+    let create_sql = format!(r#"CREATE TABLE "{}" ({})"#, safe_table, cols_def.join(", "));
     conn.execute(&create_sql, [])
         .map_err(|e| format!("Create table failed: {}", e))?;
 
@@ -113,14 +109,20 @@ pub fn sqlimportcsv_impl(
         let insert_sql = format!(
             r#"INSERT INTO "{}" ({}) VALUES ({})"#,
             safe_table,
-            col_names.iter().map(|c| format!(r#""{}""#, c.replace('"', ""))).collect::<Vec<_>>().join(", "),
+            col_names
+                .iter()
+                .map(|c| format!(r#""{}""#, c.replace('"', "")))
+                .collect::<Vec<_>>()
+                .join(", "),
             placeholders
         );
 
-        let mut stmt = conn.prepare(&insert_sql)
+        let mut stmt = conn
+            .prepare(&insert_sql)
             .map_err(|e| format!("Prepare insert failed: {}", e))?;
 
-        let tx = conn.unchecked_transaction()
+        let tx = conn
+            .unchecked_transaction()
             .map_err(|e| format!("Begin transaction failed: {}", e))?;
 
         for row in &data_rows {

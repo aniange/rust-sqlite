@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
-use rusqlite::Connection;
 use crate::utils::types::{infer_column_type, make_valid_columns, normalize_sql_type};
+use rusqlite::Connection;
 
 pub fn sqlcreatetable_impl(
     conn: &Connection,
@@ -26,7 +26,8 @@ pub fn sqlcreatetable_impl(
             if cols.len() != data_col_count {
                 return Err(format!(
                     "Column count ({}) does not match data column count ({})",
-                    cols.len(), data_col_count
+                    cols.len(),
+                    data_col_count
                 ));
             }
             (cols, data_grid)
@@ -63,7 +64,8 @@ pub fn sqlcreatetable_impl(
             data_rows.clone();
             (0..col_count)
                 .map(|col_idx| {
-                    let col_values: Vec<String> = infer_source.iter()
+                    let col_values: Vec<String> = infer_source
+                        .iter()
                         .map(|row| row.get(col_idx).cloned().unwrap_or_default())
                         .collect();
                     infer_column_type(&col_values)
@@ -77,13 +79,12 @@ pub fn sqlcreatetable_impl(
         return Err("Table name cannot be empty".to_string());
     }
 
-    let _ = conn.execute(
-        &format!(r#"DROP TABLE IF EXISTS "{}""#, safe_table),
-        []
-    );
+    let _ = conn.execute(&format!(r#"DROP TABLE IF EXISTS "{}""#, safe_table), []);
 
     let mut create_sql = format!(r#"CREATE TABLE "{}" ("#, safe_table);
-    let cols_def: Vec<String> = col_names.iter().zip(col_types.iter())
+    let cols_def: Vec<String> = col_names
+        .iter()
+        .zip(col_types.iter())
         .map(|(name, ty)| {
             let safe_name = name.replace('"', "");
             let valid_type = normalize_sql_type(ty);
@@ -102,14 +103,20 @@ pub fn sqlcreatetable_impl(
         let insert_sql = format!(
             r#"INSERT INTO "{}" ({}) VALUES ({})"#,
             safe_table,
-            col_names.iter().map(|c| format!(r#""{}""#, c.replace('"', ""))).collect::<Vec<_>>().join(", "),
+            col_names
+                .iter()
+                .map(|c| format!(r#""{}""#, c.replace('"', "")))
+                .collect::<Vec<_>>()
+                .join(", "),
             placeholders
         );
 
-        let mut stmt = conn.prepare(&insert_sql)
+        let mut stmt = conn
+            .prepare(&insert_sql)
             .map_err(|e| format!("Prepare insert failed: {}", e))?;
 
-        let tx = conn.unchecked_transaction()
+        let tx = conn
+            .unchecked_transaction()
             .map_err(|e| format!("Begin transaction failed: {}", e))?;
 
         for row in &data_rows {
@@ -148,20 +155,27 @@ pub fn sqlappendtable_impl(
     }
 
     // 检查表是否存在
-    let table_exists: bool = conn.query_row(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-        [&safe_table],
-        |_| Ok(true),
-    ).unwrap_or(false);
+    let table_exists: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            [&safe_table],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
 
     if !table_exists {
-        return Err(format!("Table '{}' does not exist. Use SqlCreateTable first.", safe_table));
+        return Err(format!(
+            "Table '{}' does not exist. Use SqlCreateTable first.",
+            safe_table
+        ));
     }
 
     // 获取表的列数
-    let mut stmt = conn.prepare(&format!("PRAGMA table_info(\"{}\")", safe_table))
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info(\"{}\")", safe_table))
         .map_err(|e| format!("Prepare failed: {}", e))?;
-    let col_count: usize = stmt.query_map([], |_| Ok(()))
+    let col_count: usize = stmt
+        .query_map([], |_| Ok(()))
         .map_err(|e| format!("Query failed: {}", e))?
         .count();
 
@@ -175,16 +189,14 @@ pub fn sqlappendtable_impl(
     let row_count = data_grid.len();
     if row_count > 0 {
         let placeholders = (0..col_count).map(|_| "?").collect::<Vec<_>>().join(", ");
-        let insert_sql = format!(
-            r#"INSERT INTO "{}" VALUES ({})"#,
-            safe_table,
-            placeholders
-        );
+        let insert_sql = format!(r#"INSERT INTO "{}" VALUES ({})"#, safe_table, placeholders);
 
-        let mut stmt = conn.prepare(&insert_sql)
+        let mut stmt = conn
+            .prepare(&insert_sql)
             .map_err(|e| format!("Prepare insert failed: {}", e))?;
 
-        let tx = conn.unchecked_transaction()
+        let tx = conn
+            .unchecked_transaction()
             .map_err(|e| format!("Begin transaction failed: {}", e))?;
 
         for row in &data_grid {
