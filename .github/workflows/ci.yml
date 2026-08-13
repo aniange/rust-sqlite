@@ -10,28 +10,31 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  fmt:
+    name: Check formatting
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo dependencies
-        uses: Swatinem/rust-cache@v2
-
+        with:
+          components: rustfmt
       - name: Check formatting
         run: cargo fmt -- --check
 
+  test:
+    name: Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache cargo dependencies
+        uses: Swatinem/rust-cache@v2
       - name: Run clippy
         run: cargo clippy --all-targets --all-features
-
       - name: Run tests
         run: cargo test --all-targets --all-features
 
@@ -40,19 +43,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
       - name: Cache cargo dependencies
         uses: Swatinem/rust-cache@v2
-
       - name: Build XLL (x86_64)
         run: cargo build --release
-
       - name: Upload XLL artifact
         uses: actions/upload-artifact@v4
         with:
           name: rust_sqlite_x64
-          path: target/release/rust_sqlite.xll
+          path: target/release/rust-sqlite.xll   # 修复：与 build.rs 生成的文件名保持一致（连字符）
           if-no-files-found: error
