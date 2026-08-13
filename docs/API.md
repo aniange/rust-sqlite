@@ -83,7 +83,7 @@
 **示例**
 ```excel
 =SqlConnect()                    ' 内存数据库
-=SqlConnect("C:\data\app.db")  ' 文件数据库
+=SqlConnect("C:\data\app.db")    ' 文件数据库
 ```
 
 **注意事项**
@@ -215,9 +215,9 @@
 
 **示例**
 ```excel
-=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)      ' 第 1 页
-=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)   ' 第 2 页
-=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50) ' 最新 50 条
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 0)         ' 第 1 页
+=SqlQueryL(,"SELECT * FROM big_table", 1000, 1000)      ' 第 2 页
+=SqlQueryL(,"SELECT * FROM logs ORDER BY id DESC", 50)  ' 最新 50 条
 ```
 
 **注意事项**
