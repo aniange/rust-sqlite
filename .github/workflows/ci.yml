@@ -11,6 +11,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  fmt:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt -- --check
+
   test:
     name: Test
     runs-on: windows-latest
@@ -39,27 +49,32 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - name: Build XLL
-        run: cargo build --release --target ${{ matrix.target }}
-      - name: Locate XLL artifact
+      - run: cargo build --release --target ${{ matrix.target }}
+      - name: Verify XLL artifact
         shell: pwsh
         run: |
-          $src = "target/${{ matrix.target }}/release/rust_sqlite.xll"
-          if (-not (Test-Path $src)) {
-            $dll = "target/${{ matrix.target }}/release/rust_sqlite.dll"
-            if (Test-Path $dll) {
-              Rename-Item $dll $src -Force
-              Write-Host "Renamed .dll -> .xll"
-            } else {
-              Write-Error "Neither .xll nor .dll found at target/${{ matrix.target }}/release/"
-              exit 1
-            }
+          $hostTarget = (rustc -vV | Select-String "host:").Line.Split()[1]
+          $buildTarget = "${{ matrix.target }}"
+          if ($buildTarget -eq $hostTarget) {
+            $xll = "target/release/rust_sqlite.xll"
+            $dll = "target/release/rust_sqlite.dll"
+          } else {
+            $xll = "target/$buildTarget/release/rust_sqlite.xll"
+            $dll = "target/$buildTarget/release/rust_sqlite.dll"
           }
-          Write-Host "XLL path: $src"
+          if (Test-Path $xll) {
+            Write-Host "XLL found: $xll"
+          } elseif (Test-Path $dll) {
+            Copy-Item $dll $xll -Force
+            Write-Host "Copied DLL -> XLL: $xll"
+          } else {
+            Write-Error "No .xll or .dll found"
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: rust_sqlite_${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/rust_sqlite.xll
+          path: target/**/release/rust_sqlite.xll
           if-no-files-found: error
           retention-days: 7
 
