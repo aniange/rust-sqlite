@@ -17,6 +17,7 @@
   - [SqlQueryScalar](#sqlqueryscalar)
 - [执行类](#执行类)
   - [SqlExec](#sqlexec)
+  - [SqlScript](#sqlscript)
 - [事务控制类](#事务控制类)
   - [SqlBegin](#sqlbegin)
   - [SqlCommit](#sqlcommit)
@@ -295,6 +296,45 @@
 **注意事项**
 - 不能用于 SELECT 查询（不会返回结果集）
 - DDL 语句（CREATE/DROP）返回 0
+
+#### [<ins>返回目录</ins>](#目录)
+---
+
+### SqlScript
+
+执行包含多条语句的 SQL 脚本，或读取外部 `.sql` 文件执行。
+
+**语法**
+```excel
+=SqlScript([conn_str], script_or_path)
+```
+**参数**
+| 参数               | 类型  | 必填 | 说明                        |
+| ---------------- | --- | -- | ------------------------- |
+| `conn_str`       | 字符串 | 否  | 数据库路径或句柄                  |
+| `script_or_path` | 字符串 | 是  | SQL 脚本文本，或 `.sql` 文件的完整路径 |
+
+**返回值**
+
+成功返回 "Script executed successfully"。
+
+**示例**
+```excel
+' 直接执行脚本
+=SqlScript(,"CREATE TABLE t1 (id INTEGER); INSERT INTO t1 VALUES (1);")
+
+' 执行外部脚本文件
+=SqlScript(,"C:\scripts\setup.sql")
+
+' 引用单元格中的文件路径
+=SqlScript(,A1)
+```
+
+**注意事项**
+- 若 script_or_path 对应的路径存在，则按文件读取；否则当作原始 SQL 执行
+- 文件编码自动检测：先尝试 UTF-8，失败则 fallback 到 GB18030（兼容 GBK）
+- 脚本中不要包含 SELECT 查询并期望返回结果集——查询结果会被丢弃
+- execute_batch 不会自动包裹事务，如需原子性，建议先 =SqlBegin()，再执行脚本，再 =SqlCommit()
 
 #### [<ins>返回目录</ins>](#目录)
 ---

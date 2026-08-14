@@ -6,7 +6,9 @@ use crate::conn::{
 use crate::error::error_to_xloper;
 use crate::functions::csv_export::sqlexportcsv_impl;
 use crate::functions::csv_import::sqlimportcsv_impl;
-use crate::functions::exec::{sqlbegin_impl, sqlcommit_impl, sqlexec_impl, sqlrollback_impl};
+use crate::functions::exec::{
+    sqlbegin_impl, sqlcommit_impl, sqlexec_impl, sqlrollback_impl, sqlscript_impl,
+};
 use crate::functions::metadata::{sqlpragma_impl, sqlschema_impl, sqltables_impl, sqlversion_impl};
 use crate::functions::query::{sqlquery_impl, sqlqueryl_impl, sqlqueryp_impl, sqlqueryscalar_impl};
 use crate::functions::table::{sqlappendtable_impl, sqlcreatetable_impl};
@@ -445,6 +447,28 @@ pub extern "system" fn sqlrollback(conn_str: *mut XLOPER12) -> *mut XLOPER12 {
 }
 
 #[no_mangle]
+pub extern "system" fn sqlscript(conn_str: *mut XLOPER12, script: *mut XLOPER12) -> *mut XLOPER12 {
+    let conn_raw = unsafe {
+        match extract_conn_str(conn_str) {
+            Some(s) => s,
+            None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+        }
+    };
+    let stmt = unsafe {
+        match (*script).as_string() {
+            Some(s) => s,
+            None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+        }
+    };
+
+    let conn = resolve_conn(&conn_raw);
+    match sqlscript_impl(&conn, &stmt) {
+        Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn sqlcreatetable(
     db: *mut XLOPER12,
     name: *mut XLOPER12,
@@ -780,6 +804,19 @@ pub extern "system" fn xlAutoOpen() -> i32 {
         "SQLite",
         "Rollback the current transaction",
         &["Database handle, full file path, or omit for in-memory database"],
+    );
+
+    let _ = reg.add(
+        "sqlscript",
+        &build_type_string('Q', &['Q', 'Q'], false, false, false),
+        "SqlScript",
+        "conn_str, script_or_path",
+        "SQLite",
+        "Execute a SQL script (multiple statements) or run a .sql file. Auto-detects file path vs raw SQL and encoding (UTF-8/GBK).",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "SQL script text, or full path to a .sql file (auto-detects UTF-8 / GBK encoding)",
+        ],
     );
 
     let _ = reg.add(

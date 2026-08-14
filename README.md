@@ -13,6 +13,7 @@
 - **CSV 智能导入**：自动识别 UTF-8 / GBK 编码，自动推断列类型
 - **内存数据库**：省略路径即可使用共享内存 DB，跨工作表数据互通
 - **分页查询**：`SqlQueryL` 自动追加 LIMIT/OFFSET，百万级数据不卡死
+- **SQL 脚本执行**：`SqlScript` 支持多语句脚本，自动识别文件路径，支持 UTF-8 / GBK 编码
 
 ---
 
@@ -70,6 +71,12 @@
 ```
 > 自动识别 UTF-8 / GBK 编码，支持自定义分隔符。
 
+### 8. 执行 SQL 脚本
+```excel
+=SqlScript(,"CREATE TABLE t1 (id INTEGER); INSERT INTO t1 VALUES (1),(2),(3);")
+```
+> 支持多语句脚本，语句间用分号分隔。也可传入 .sql 文件路径，自动识别 UTF-8 / GBK 编码。
+> =SqlScript(,"C:\scripts\init_database.sql")
 ---
 
 ## 函数速查表
@@ -88,6 +95,7 @@
 | `SqlCreateTable` | 从 Excel 区域建表 | ⭐⭐ |
 | `SqlImportCsv` | 导入 CSV 文件 | ⭐⭐ |
 | `SqlTables` / `SqlSchema` / `SqlPragma` | 元数据查询 | ⭐⭐ |
+| `SqlScript` | 执行多语句 SQL 脚本或 `.sql` 文件 | ⭐⭐ |
 
 > 📖 **完整 API 文档**（含每个函数的参数表、返回值、错误码、详细示例）→ [docs/API.md](./docs/API.md)
 
@@ -102,17 +110,20 @@ src/
 ├── error.rs             # 错误码映射（#REF! / #NAME? / #VALUE!）
 ├── ffi.rs               # Excel FFI 导出层（所有 #[no_mangle] 函数）
 ├── functions/
-│   ├── query.rs         # SqlQuery / SqlQueryP / SqlQueryL
-│   ├── exec.rs          # SqlExec / SqlCreateDb
-│   ├── table.rs         # SqlCreateTable
+│   ├── query.rs         # SqlQuery / SqlQueryP / SqlQueryL / SqlQueryScalar
+│   ├── exec.rs          # SqlExec / SqlBegin / SqlCommit / SqlRollback / SqlScript
+│   ├── table.rs         # SqlCreateTable / SqlAppendTable
 │   ├── csv_import.rs    # SqlImportCsv（含编码自动识别）
+│   ├── csv_export.rs    # SqlExportCsv
 │   └── metadata.rs      # SqlTables / SqlVersion / SqlSchema / SqlPragma
 ├── utils/
+│   ├── mod.rs           # 工具模块入口
 │   └── types.rs         # 类型推断、列名清洗、SQL 类型规范化
+│       └── tests.rs     # 单元测试（infer_column_type / make_valid_columns / normalize_sql_type）
 └── core/
     └── pool.rs          # ConnectionPool 结构体
-```
 
+```
 > 🔧 架构详解、本地编译指南、测试运行方式 → [docs/Contributing.md](./docs/Contributing.md)
 
 ---
