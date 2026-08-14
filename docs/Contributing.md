@@ -47,7 +47,7 @@
 cargo build --release
 
 # 32 位版本
-rustup target add i686-pc-windows-msvc    #（如果尚未安装）
+rustup target add i686-pc-windows-msvc              #（如果尚未安装）
 cargo build --release --target i686-pc-windows-msvc
 ```
 
