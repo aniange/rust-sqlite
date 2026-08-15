@@ -78,6 +78,7 @@ cargo test --test test_exec
 | 集成测试 | `tests/test_table.rs` | SqlCreateTable 自动推断、显式列名/类型、幂等重建 | ❌ |
 | 集成测试 | `tests/test_csv_import.rs` | CSV 导入（UTF-8/GBK、制表符、自定义列/类型） | ❌ |
 | 集成测试 | `tests/test_script.rs` | SqlScript 脚本执行、文件读取、编码检测（UTF-8/GBK） | ❌ |
+| 集成测试 | `tests/test_csv_import_dir.rs` | SqlImportCsvDir 批量导入、空目录、多文件、GBK 编码、非法目录 | ❌ |
 
 所有测试均使用内存数据库或临时文件，**不需要启动 Excel**。
 

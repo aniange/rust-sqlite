@@ -25,6 +25,7 @@
 - [数据导入类](#数据导入类)
   - [SqlCreateTable](#sqlcreatetable)
   - [SqlImportCsv](#sqlimportcsv)
+  - [SqlImportCsvDir](#sqlimportcsvdir)
   - [SqlAppendTable](#sqlappendtable)
 - [数据导出类](#数据导出类)
   - [SqlExportCsv](#sqlexportcsv)
@@ -92,6 +93,7 @@
 - 句柄对应的连接会被缓存，后续使用该句柄的公式无需重新打开文件
 - 内存数据库的句柄固定为 `"conn_memory"`
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlDisconnect
@@ -159,6 +161,7 @@
 - 返回大量数据时 Excel 可能卡顿，建议配合 `SqlQueryL` 分页使用
 - 日期时间以 INTEGER（Unix 时间戳）或 TEXT 形式返回，需手动设置单元格格式
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlQueryP
@@ -192,6 +195,7 @@
 - `?` 的数量必须与提供的参数数量完全一致，否则会返回 `#VALUE!`
 - 参数类型会自动推断：数字 → INTEGER/REAL，文本 → TEXT
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlQueryL
@@ -227,6 +231,7 @@
 - 如果 `sql` 中已包含 `LIMIT`（不区分大小写），则不会追加分页，避免冲突
 - 子查询中含 `LIMIT` 也会被检测到，此时分页不会生效（保守策略）
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlQueryScalar
@@ -470,6 +475,7 @@
 - 空单元格会被推断为 `""`（TEXT）或 `0`（INTEGER），建议清理空行
 - 列名会自动去除引号、去空格；空列名自动命名为 `col_N`
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlImportCsv
@@ -515,6 +521,49 @@
 - 大文件使用事务批量插入，性能优于逐条 INSERT
 - 空行会被跳过，但格式错误的行可能导致 `#VALUE!`
 
+#### [<ins>返回目录</ins>](#目录)
+---
+
+### SqlImportCsvDir
+
+批量导入指定目录下的所有 `.csv` 文件。每个 CSV 自动创建为独立的表，表名取自文件名（去除扩展名并清洗为合法 SQL 标识符）。
+
+**语法**
+```excel
+=SqlImportCsvDir([conn_str], dir_path, [has_header], [delimiter], [columns], [types])
+```
+**参数**
+
+| 参数           | 类型  | 必填 | 说明                   |
+| ------------ | --- | -- | -------------------- |
+| `conn_str`   | 字符串 | 否  | 数据库路径或句柄             |
+| `dir_path`   | 字符串 | 是  | 包含 CSV 文件的目录完整路径     |
+| `has_header` | 布尔  | 否  | CSV 是否含表头行，默认 `TRUE` |
+| `delimiter`  | 字符串 | 否  | 分隔符，默认逗号 `,`         |
+| `columns`    | 数组  | 否  | 统一指定所有文件的列名（可选）      |
+| `types`      | 数组  | 否  | 统一指定所有文件的列类型（可选）     |
+
+**返回值**
+
+成功返回导入摘要，包含每个文件的导入结果和可能的错误列表。
+
+**示例**
+```excel
+' 导入 C:\data\ 下所有 CSV，自动建表
+=SqlImportCsvDir(,"C:\data\", TRUE, ",")
+
+' 使用分号分隔符导入
+=SqlImportCsvDir(,"C:\reports\", TRUE, ";")
+```
+
+**注意事项**
+- 只处理扩展名为 .csv（大小写不敏感）的文件
+- 非 CSV 文件（如 .txt、.xlsx）会被自动跳过
+- 表名清洗规则：非字母数字字符替换为下划线；数字开头自动加 t_ 前缀
+- 每个文件独立调用 sqlimportcsv_impl，因此编码（UTF-8/GBK）是逐文件自动检测的
+- 如果 columns/types 被指定，会应用到所有文件；如果各文件结构不同，建议分批导入或使用 SqlImportCsv 单文件导入
+
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlAppendTable
@@ -613,6 +662,7 @@
 =SqlTables("app.db")   ' 指定数据库中的表
 ```
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlVersion
@@ -633,6 +683,7 @@
 =SqlVersion()
 ```
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlSchema
@@ -661,6 +712,7 @@
 =SqlSchema("app.db", "orders")
 ```
 
+#### [<ins>返回目录</ins>](#目录)
 ---
 
 ### SqlPragma

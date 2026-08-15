@@ -5,7 +5,7 @@ use crate::conn::{
 };
 use crate::error::error_to_xloper;
 use crate::functions::csv_export::sqlexportcsv_impl;
-use crate::functions::csv_import::sqlimportcsv_impl;
+use crate::functions::csv_import::{sqlimportcsv_impl, sqlimportcsvdir_impl};
 use crate::functions::exec::{
     sqlbegin_impl, sqlcommit_impl, sqlexec_impl, sqlrollback_impl, sqlscript_impl,
 };
@@ -598,6 +598,73 @@ pub extern "system" fn sqlimportcsv(
 }
 
 #[no_mangle]
+pub extern "system" fn sqlimportcsvdir(
+    conn_str: *mut XLOPER12,
+    dir_path: *mut XLOPER12,
+    has_header: *mut XLOPER12,
+    delimiter: *mut XLOPER12,
+    columns: *mut XLOPER12,
+    types: *mut XLOPER12,
+) -> *mut XLOPER12 {
+    let conn_raw = unsafe {
+        match extract_conn_str(conn_str) {
+            Some(s) => s,
+            None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+        }
+    };
+    let conn = resolve_conn(&conn_raw);
+
+    let dir = unsafe {
+        match (*dir_path).as_string() {
+            Some(s) => s,
+            None => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+        }
+    };
+
+    let header = unsafe {
+        if (*has_header).base_type() == XLTYPE_MISSING || (*has_header).base_type() == XLTYPE_NIL {
+            true
+        } else {
+            (*has_header).as_bool().unwrap_or(true)
+        }
+    };
+
+    let delim = unsafe {
+        if (*delimiter).base_type() == XLTYPE_MISSING || (*delimiter).base_type() == XLTYPE_NIL {
+            b','
+        } else {
+            match (*delimiter).as_string() {
+                Some(s) if !s.is_empty() => s.as_bytes()[0],
+                _ => b',',
+            }
+        }
+    };
+
+    let cols = unsafe {
+        if (*columns).base_type() == XLTYPE_MISSING {
+            None
+        } else {
+            xloper_to_string_list(columns)
+        }
+    };
+
+    let types_opt = unsafe {
+        if (*types).base_type() == XLTYPE_MISSING {
+            None
+        } else {
+            xloper_to_string_list(types)
+        }
+    };
+
+    match with_conn(&conn, |conn| {
+        sqlimportcsvdir_impl(conn, &dir, header, delim, cols, types_opt)
+    }) {
+        Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn xlAutoOpen() -> i32 {
     let reg = Reg::new();
 
@@ -850,6 +917,23 @@ pub extern "system" fn xlAutoOpen() -> i32 {
             "Optional: delimiter character, default comma ','",
             "Optional: column names. Can be a range or array literal",
             "Optional: column types. Can be a range or array literal",
+        ],
+    );
+
+    let _ = reg.add(
+        "sqlimportcsvdir",
+        &build_type_string('Q', &['Q', 'Q', 'Q', 'Q', 'Q', 'Q'], false, false, false),
+        "SqlImportCsvDir",
+        "conn_str, dir_path, has_header, delimiter, columns, types",
+        "SQLite",
+        "Batch import all CSV files from a directory. Each file becomes a table named after the file. Auto-detects UTF-8/GBK encoding per file.",
+        &[
+            "Database handle, full file path, or omit for in-memory database",
+            "Full path to the directory containing CSV files",
+            "Optional: does CSV have header row? TRUE/FALSE, default TRUE",
+            "Optional: delimiter character, default comma ','",
+            "Optional: column names for ALL files. Can be a range or array literal",
+            "Optional: column types for ALL files. Can be a range or array literal",
         ],
     );
 

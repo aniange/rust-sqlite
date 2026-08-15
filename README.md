@@ -14,7 +14,6 @@
 - **内存数据库**：省略路径即可使用共享内存 DB，跨工作表数据互通
 - **分页查询**：`SqlQueryL` 自动追加 LIMIT/OFFSET，百万级数据不卡死
 - **SQL 脚本执行**：`SqlScript` 支持多语句脚本，自动识别文件路径，支持 UTF-8 / GBK 编码
-
 ---
 
 ## 安装
@@ -74,9 +73,17 @@
 ### 8. 执行 SQL 脚本
 ```excel
 =SqlScript(,"CREATE TABLE t1 (id INTEGER); INSERT INTO t1 VALUES (1),(2),(3);")
+=SqlScript(,"C:\scripts\init_database.sql")
 ```
 > 支持多语句脚本，语句间用分号分隔。也可传入 .sql 文件路径，自动识别 UTF-8 / GBK 编码。
-> =SqlScript(,"C:\scripts\init_database.sql")
+> 
+
+### 9. 批量导入目录下的所有 CSV
+```excel
+=SqlImportCsvDir(,"C:\data\raw_csv\", TRUE, ",")
+=SqlImportCsvDir(,"C:\reports", TRUE, ";")
+```
+> 目录下每个 .csv 文件自动变成一张表，表名 = 文件名（自动清洗为合法标识符）。
 ---
 
 ## 函数速查表
@@ -96,6 +103,7 @@
 | `SqlImportCsv` | 导入 CSV 文件 | ⭐⭐ |
 | `SqlTables` / `SqlSchema` / `SqlPragma` | 元数据查询 | ⭐⭐ |
 | `SqlScript` | 执行多语句 SQL 脚本或 `.sql` 文件 | ⭐⭐ |
+| `SqlImportCsvDir` | 批量导入目录下所有 CSV，自动建表 | ⭐⭐⭐ |
 
 > 📖 **完整 API 文档**（含每个函数的参数表、返回值、错误码、详细示例）→ [docs/API.md](./docs/API.md)
 
@@ -113,7 +121,7 @@ src/
 │   ├── query.rs         # SqlQuery / SqlQueryP / SqlQueryL / SqlQueryScalar
 │   ├── exec.rs          # SqlExec / SqlBegin / SqlCommit / SqlRollback / SqlScript
 │   ├── table.rs         # SqlCreateTable / SqlAppendTable
-│   ├── csv_import.rs    # SqlImportCsv（含编码自动识别）
+│   ├── csv_import.rs    # SqlImportCsv / SqlImportCsvDir（含编码自动识别）
 │   ├── csv_export.rs    # SqlExportCsv
 │   └── metadata.rs      # SqlTables / SqlVersion / SqlSchema / SqlPragma
 ├── utils/

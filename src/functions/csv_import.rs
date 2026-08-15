@@ -142,3 +142,97 @@ pub fn sqlimportcsv_impl(
         safe_table, col_count, row_count
     ))
 }
+
+use std::fs;
+
+/// Batch import all CSV files from a directory.
+///
+/// Each `.csv` file becomes a separate table named after the file (without extension).
+/// File names are sanitized to be valid SQL identifiers.
+/// Encoding is auto-detected per file (UTF-8 first, then GB18030).
+pub fn sqlimportcsvdir_impl(
+    conn: &Connection,
+    dir_path: &str,
+    has_header: bool,
+    delimiter: u8,
+    explicit_columns: Option<Vec<String>>,
+    explicit_types: Option<Vec<String>>,
+) -> Result<String, String> {
+    let entries = fs::read_dir(dir_path)
+        .map_err(|e| format!("Read directory failed '{}': {}", dir_path, e))?;
+
+    let mut imported = Vec::new();
+    let mut errors = Vec::new();
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                errors.push(format!("Skip entry: {}", e));
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        if ext.to_lowercase() != "csv" {
+            continue;
+        }
+
+        let file_name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown");
+        let table_name = sanitize_table_name(file_name);
+
+        let path_str = path.to_str().unwrap_or("");
+        if path_str.is_empty() {
+            continue;
+        }
+
+        match sqlimportcsv_impl(
+            conn,
+            path_str,
+            &table_name,
+            has_header,
+            delimiter,
+            explicit_columns.clone(),
+            explicit_types.clone(),
+        ) {
+            Ok(msg) => imported.push(msg),
+            Err(e) => errors.push(format!("'{}': {}", file_name, e)),
+        }
+    }
+
+    if imported.is_empty() && !errors.is_empty() {
+        return Err(format!("All imports failed:\n{}", errors.join("\n")));
+    }
+
+    let mut result = format!("Imported {} CSV file(s)", imported.len());
+    if !errors.is_empty() {
+        result.push_str(&format!(" ({} failed)", errors.len()));
+    }
+    result.push_str(".\n");
+    result.push_str(&imported.join("\n"));
+    if !errors.is_empty() {
+        result.push_str("\nErrors:\n");
+        result.push_str(&errors.join("\n"));
+    }
+
+    Ok(result)
+}
+
+/// Sanitize a file name into a valid SQLite table identifier.
+fn sanitize_table_name(name: &str) -> String {
+    let mut s = name
+        .replace(|c: char| !c.is_alphanumeric() && c != '_', "_")
+        .replace(|c: char| c.is_whitespace(), "_");
+    if s.is_empty() || s.chars().next().unwrap().is_ascii_digit() {
+        s = format!("t_{}", s);
+    }
+    s
+}
