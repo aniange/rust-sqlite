@@ -153,7 +153,7 @@
 
 **示例**
 ```excel
-=SqlQuery("sales.db", "SELECT * FROM orders WHERE amount > 1000")
+=SqlQuery("C:\data\sales.db", "SELECT * FROM orders WHERE amount > 1000")
 =SqlQuery(,"SELECT name, score FROM students ORDER BY score DESC")
 ```
 
@@ -258,7 +258,7 @@
 ```excel
 =SqlQueryScalar(,"SELECT COUNT(*) FROM users")
 =SqlQueryScalar(,"SELECT MAX(score) FROM exam")
-=SqlQueryScalar("app.db","SELECT name FROM users WHERE id = 1")
+=SqlQueryScalar("C:\data\app.db","SELECT name FROM users WHERE id = 1")
 ```
 
 **注意事项**
@@ -368,7 +368,7 @@
 **示例**
 ```excel
 =SqlBegin()
-=SqlBegin("app.db")
+=SqlBegin("C:\data\app.db")
 ```
 
 ---
@@ -395,7 +395,7 @@
 **示例**
 ```excel
 =SqlCommit()
-=SqlCommit("app.db")
+=SqlCommit("C:\data\app.db")
 ```
 
 ---
@@ -422,7 +422,7 @@
 **示例**
 ```excel
 =SqlRollback()
-=SqlRollback("app.db")
+=SqlRollback("C:\data\app.db")
 ```
 
 **注意事项**
@@ -658,8 +658,8 @@
 
 **示例**
 ```excel
-=SqlTables()           ' 内存数据库中的表
-=SqlTables("app.db")   ' 指定数据库中的表
+=SqlTables()                   ' 内存数据库中的表
+=SqlTables("C:\data\app.db")   ' 指定数据库中的表
 ```
 
 #### [<ins>返回目录</ins>](#目录)
@@ -778,10 +778,10 @@ CREATE INDEX idx_orders_user ON orders(user_id);
 PRAGMA 查询结果，格式取决于具体 PRAGMA。
 
 **示例**
-```excel
-=SqlPragma(,"journal_mode")           ' 返回当前日志模式
-=SqlPragma(,"table_info(users)")      ' 返回 users 表结构
-=SqlPragma("app.db","foreign_keys")  ' 检查外键约束是否启用
+```excel 
+=SqlPragma(,"journal_mode")                    ' 返回当前日志模式
+=SqlPragma(,"table_info(users)")               ' 返回 users 表结构
+=SqlPragma("C:\data\app.db","foreign_keys")    ' 检查外键约束是否启用
 ```
 
 **注意事项**
