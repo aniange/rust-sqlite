@@ -781,7 +781,7 @@ pub extern "system" fn xlAutoOpen() -> i32 {
         "SqlSchema",
         "conn_str, table_name",
         "SQLite",
-        "Return column structure of a table (PRAGMA table_info)",
+        "Return complete schema of a table: columns, indexes, foreign keys and CREATE TABLE SQL",
         &[
             "Database handle, full file path, or omit for in-memory database",
             "Name of the table to inspect",
