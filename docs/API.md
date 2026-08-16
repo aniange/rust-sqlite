@@ -688,7 +688,7 @@
 
 ### SqlSchema
 
-返回指定表的列结构信息（PRAGMA table_info）。
+返回指定表的完整 Schema 信息，包含建表 SQL、列结构、索引和外键约束。
 
 **语法**
 ```excel
@@ -704,13 +704,55 @@
 
 **返回值**
 
-二维数组，包含列：cid, name, type, notnull, dflt_value, pk
+二维数组，按以下 Section 组织：
+
+| Section                | 内容                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| `=== TABLE INFO ===`   | 表名 + 原始 `CREATE TABLE` SQL                                                               |
+| `=== COLUMNS ===`      | `PRAGMA table_info` 的完整结果（cid, name, type, notnull, dflt\_value, pk）                     |
+| `=== INDEXES ===`      | `PRAGMA index_list` + 每个索引涉及的列名（columns）                                                 |
+| `=== FOREIGN KEYS ===` | `PRAGMA foreign_key_list` 的完整结果（id, seq, table, from, to, on\_update, on\_delete, match） |
+
+> 如果表没有索引或外键，对应的 Section 会自动隐藏，不会输出空表格。
 
 **示例**
 ```excel
-=SqlSchema(,"users")
-=SqlSchema("app.db", "orders")
+=SqlSchema(,"orders")
+=SqlSchema("C:\data\app.db", "users")
 ```
+假设 orders 表结构如下：
+```sql
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    amount REAL DEFAULT 0.0,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX idx_orders_user ON orders(user_id);
+```
+=SqlSchema(,"orders") 返回：
+|    | A                    | B      | C                 | D                         | E        | F           | G          | H          |   |
+| -- | -------------------- | ------ | ----------------- | ------------------------- | -------- | ----------- | ---------- | ---------- | - |
+| 1  | === TABLE INFO ===   |        |                   |                           |          |             |            |            |   |
+| 2  | name                 | orders | sql               | CREATE TABLE orders (...) |          |             |            |            |   |
+| 3  |                      |        |                   |                           |          |             |            |            |   |
+| 4  | === COLUMNS ===      | cid    | name              | type                      | notnull  | dflt\_value | pk         |            |   |
+| 5  |                      | 0      | id                | INTEGER                   | 0        |             | 1          |            |   |
+| 6  |                      | 1      | user\_id          | INTEGER                   | 1        |             | 0          |            |   |
+| 7  |                      | 2      | amount            | REAL                      | 0        | 0.0         | 0          |            |   |
+| 8  |                      |        |                   |                           |          |             |            |            |   |
+| 9  | === INDEXES ===      | seq    | name              | unique                    | origin   | partial     | columns    |            |   |
+| 10 |                      | 0      | idx\_orders\_user | 0                         | c        | 0           | user\_id   |            |   |
+| 11 |                      |        |                   |                           |          |             |            |            |   |
+| 12 | === FOREIGN KEYS === | id     | seq               | table                     | from     | to          | on\_update | on\_delete |   |
+| 13 |                      | 0      | 0                 | users                     | user\_id | id          | NO ACTION  | NO ACTION  |   |
+
+**注意事项**
+- 表名中的双引号会被安全转义，支持特殊表名（如 weird"table）
+- 表不存在时，sql 字段显示 N/A，且不会输出 COLUMNS / INDEXES / FOREIGN KEYS Section
+- 返回数组固定为 8 列，不足部分补空字符串，保证 Excel 矩形数组格式
+- 索引的 columns 列为额外聚合字段，显示该索引涉及的所有列名（逗号分隔）
+
 
 #### [<ins>返回目录</ins>](#目录)
 ---
