@@ -9,7 +9,9 @@ use crate::functions::csv_import::{sqlimportcsv_impl, sqlimportcsvdir_impl};
 use crate::functions::exec::{
     sqlbegin_impl, sqlcommit_impl, sqlexec_impl, sqlrollback_impl, sqlscript_impl,
 };
-use crate::functions::metadata::{sqlpragma_impl, sqlschema_impl, sqltables_impl, sqlversion_impl};
+use crate::functions::metadata::{
+    sqlencrypt_impl, sqlpragma_impl, sqlschema_impl, sqltables_impl, sqlversion_impl,
+};
 use crate::functions::query::{sqlquery_impl, sqlqueryl_impl, sqlqueryp_impl, sqlqueryscalar_impl};
 use crate::functions::table::{sqlappendtable_impl, sqlcreatetable_impl};
 use crate::xloper::{extract_conn_str, xloper_to_string_grid, xloper_to_string_list};
@@ -18,31 +20,33 @@ use xll_rs::register::{build_type_string, Reg};
 use xll_rs::types::*;
 
 #[no_mangle]
-pub extern "system" fn sqlconnect(db_path: *mut XLOPER12) -> *mut XLOPER12 {
+pub extern "system" fn sqlconnect(
+    db_path: *mut XLOPER12,
+    password: *mut XLOPER12,
+) -> *mut XLOPER12 {
     let path = unsafe { extract_conn_str(db_path).unwrap_or_else(|| MEMORY_DB_URI.to_string()) };
 
-    let mut cache = get_conn_cache().lock().unwrap();
-    if !cache.contains_key(&path) {
-        let conn_result = if path == MEMORY_DB_URI {
-            rusqlite::Connection::open_with_flags(
-                &path,
-                rusqlite::OpenFlags::SQLITE_OPEN_URI
-                    | rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
-                    | rusqlite::OpenFlags::SQLITE_OPEN_CREATE,
-            )
+    // 提取可选密码
+    let password_opt = unsafe {
+        let base = (*password).base_type();
+        if base != XLTYPE_MISSING && base != XLTYPE_NIL {
+            (*password).as_string()
         } else {
-            rusqlite::Connection::open(&path)
-        };
-        match conn_result {
-            Ok(conn) => {
-                cache.insert(path.clone(), conn);
-            }
-            Err(e) => {
-                return Box::into_raw(Box::new(error_to_xloper(&format!("Connect failed: {}", e))))
-            }
+            None
+        }
+    };
+
+    // 文件数据库：保存密码到映射表，供后续直接路径访问复用
+    if path != MEMORY_DB_URI {
+        if let Some(ref pwd) = password_opt {
+            crate::conn::set_password(&path, pwd);
         }
     }
-    drop(cache);
+
+    // 通过 with_conn 创建/复用连接（内部自动处理 SQLCipher 密钥）
+    if let Err(e) = crate::conn::with_conn(&path, |_| Ok(())) {
+        return Box::into_raw(Box::new(error_to_xloper(&e)));
+    }
 
     let handle = if path == MEMORY_DB_URI {
         "conn_memory".to_string()
@@ -294,6 +298,54 @@ pub extern "system" fn sqlpragma(
         Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
     }
 }
+
+#[no_mangle]
+pub extern "system" fn sqlencrypt(
+    source_path: *mut XLOPER12,
+    target_path: *mut XLOPER12,
+    target_password: *mut XLOPER12,
+    source_password: *mut XLOPER12,
+) -> *mut XLOPER12 {
+    let source = unsafe {
+        match (*source_path).as_string() {
+            Some(s) if !s.is_empty() => s,
+            _ => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+        }
+    };
+    let target = unsafe {
+        match (*target_path).as_string() {
+            Some(s) if !s.is_empty() => s,
+            _ => return Box::into_raw(Box::new(XLOPER12::from_err(XLERR_VALUE))),
+        }
+    };
+    let target_pwd = unsafe {
+        let base = (*target_password).base_type();
+        if base != XLTYPE_MISSING && base != XLTYPE_NIL {
+            (*target_password).as_string()
+        } else {
+            None
+        }
+    };
+    let source_pwd = unsafe {
+        let base = (*source_password).base_type();
+        if base != XLTYPE_MISSING && base != XLTYPE_NIL {
+            (*source_password).as_string()
+        } else {
+            None
+        }
+    };
+
+    match sqlencrypt_impl(
+        &source,
+        &target,
+        target_pwd.as_deref(),
+        source_pwd.as_deref(),
+    ) {
+        Ok(msg) => Box::into_raw(Box::new(XLOPER12::from_str(&msg))),
+        Err(e) => Box::into_raw(Box::new(error_to_xloper(&e))),
+    }
+}
+
 #[no_mangle]
 pub extern "system" fn sqlqueryscalar(
     conn_str: *mut XLOPER12,
@@ -669,16 +721,17 @@ pub extern "system" fn xlAutoOpen() -> i32 {
     let reg = Reg::new();
 
     let _ = reg.add(
-        "sqlconnect",
-        &build_type_string('Q', &['Q'], false, false, false),
-        "SqlConnect",
-        "db_path",
-        "SQLite",
-        "Connect to a SQLite database and return a handle for reuse. Omit path to use in-memory database.",
-        &[
-            "Full path to the SQLite database file, or omit to use shared memory database",
-        ],
-    );
+    "sqlconnect",
+    &build_type_string('Q', &['Q', 'Q'], false, false, false),
+    "SqlConnect",
+    "db_path, password",
+    "SQLite",
+    "Connect to a SQLite database and return a handle for reuse. Omit path to use in-memory database. Provide password to open SQLCipher encrypted databases.",
+    &[
+        "Full path to the SQLite database file, or omit to use shared memory database",
+        "Optional: password for SQLCipher encrypted database. Omit for unencrypted databases.",
+    ],
+);
 
     let _ = reg.add(
         "sqldisconnect",
@@ -800,6 +853,21 @@ pub extern "system" fn xlAutoOpen() -> i32 {
             "PRAGMA name and arguments, e.g. 'journal_mode' or 'table_info(users)'",
         ],
     );
+
+    let _ = reg.add(
+    "sqlencrypt",
+    &build_type_string('Q', &['Q', 'Q', 'Q', 'Q'], false, false, false),
+    "SqlEncrypt",
+    "source_path, target_path, target_password, source_password",
+    "SQLite",
+    "Export source database to target with SQLCipher encryption or decryption. Target must not exist.",
+    &[
+        "Full path to source database file",
+        "Full path for new target database file (must not exist)",
+        "Target password: provide to encrypt, omit or empty to create plaintext",
+        "Optional: source password if source is encrypted and not previously opened with SqlConnect",
+    ],
+);
 
     let _ = reg.add(
         "sqlqueryscalar",

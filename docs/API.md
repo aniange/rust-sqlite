@@ -34,6 +34,7 @@
   - [SqlVersion](#sqlversion)
   - [SqlSchema](#sqlschema)
   - [SqlPragma](#sqlpragma)
+  - [SqlEncrypt](#SqlEncrypt)
 
 ---
 
@@ -66,18 +67,19 @@
 
 ### SqlConnect
 
-连接到数据库并返回一个可复用的句柄。
+连接到数据库并返回一个可复用的句柄。支持 SQLCipher 加密数据库。
 
 **语法**
 ```excel
-=SqlConnect([db_path])
+=SqlConnect([db_path], [password])
 ```
 
 **参数**
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `db_path` | 字符串 | 否 | 数据库文件路径，省略则使用内存数据库 |
+| 参数         | 类型  | 必填 | 说明                     |
+| ---------- | --- | -- | ---------------------- |
+| `db_path`  | 字符串 | 否  | 数据库文件路径，省略则使用内存数据库     |
+| `password` | 字符串 | 否  | SQLCipher 解密密码。省略表示不加密 |
 
 **返回值**
 
@@ -85,13 +87,17 @@
 
 **示例**
 ```excel
-=SqlConnect()                    ' 内存数据库
-=SqlConnect("C:\data\app.db")    ' 文件数据库
+=SqlConnect()                              ' 内存数据库
+=SqlConnect("C:\data\app.db")              ' 普通未加密数据库
+=SqlConnect("C:\data\secret.db", "mykey")  ' 加密数据库
 ```
 
 **注意事项**
-- 句柄对应的连接会被缓存，后续使用该句柄的公式无需重新打开文件
-- 内存数据库的句柄固定为 `"conn_memory"`
+- 内存数据库不支持加密，提供密码会被自动忽略
+- 密码中的单引号会自动转义，无需手动处理
+- 如果密码错误，返回 #VALUE! 并提示 "Invalid key or corrupted database"
+- 同一文件路径在缓存中只能以一种密码打开；如需切换密码，先 SqlDisconnect 再重新连接
+- 加密数据库创建后，后续所有操作（SqlQuery、SqlExec 等）均无需再次提供密码
 
 #### [<ins>返回目录</ins>](#目录)
 ---
@@ -787,5 +793,53 @@ PRAGMA 查询结果，格式取决于具体 PRAGMA。
 **注意事项**
 - 部分 PRAGMA 只返回标量值，部分返回表格数据
 - 修改数据库状态的 PRAGMA（如 `journal_mode = WAL`）需要写权限
+
+#### [<ins>返回目录</ins>](#目录)
+---
+
+### SqlEncrypt
+
+将源数据库完整导出到目标数据库，支持 SQLCipher 加密/解密转换。目标文件必须不存在。
+
+**语法**
+```excel
+=SqlEncrypt(source_path, target_path, [target_password], [source_password])
+```
+
+**参数**
+
+| 参数                | 类型  | 必填 | 说明                                 |
+| ----------------- | --- | -- | ---------------------------------- |
+| `source_path`     | 字符串 | 是  | 源数据库文件完整路径                         |
+| `target_path`     | 字符串 | 是  | 目标数据库文件完整路径（**必须不存在**）             |
+| `target_password` | 字符串 | 否  | 目标库密码。提供则加密，省略/空则明文                |
+| `source_password` | 字符串 | 否  | 源库密码。仅当源库加密且未通过 `SqlConnect` 打开时需要 |
+
+**返回值**
+
+成功返回 "Encrypted N tables from 'src' to 'tgt'" 或 "Decrypted N tables ..."。
+
+**示例**
+```excel 
+' 明文库 → 加密库
+=SqlEncrypt("C:\data\app.db", "C:\data\app_enc.db", "mykey")
+
+' 加密库 → 明文库（解密）
+=SqlEncrypt("C:\data\app_enc.db", "C:\data\app_plain.db", "")
+
+' 加密库 → 另一密码的加密库
+=SqlEncrypt("C:\data\old.db", "C:\data\new.db", "newkey", "oldkey")
+
+' 源库已用 SqlConnect 打开过（密码已保存），无需再传源密码
+=SqlConnect("C:\data\app_enc.db", "oldkey")
+=SqlEncrypt("C:\data\app_enc.db", "C:\data\app_plain.db", "")
+```
+
+**注意事项**
+- 源库和目标库不能是同一文件
+- 目标文件若已存在会返回 #VALUE!，防止误覆盖
+- 导出失败时会自动清理已创建的不完整目标文件
+- 导出内容包括：所有表、数据、索引、触发器、视图、主键/外键约束
+- 如果源库是加密的且未通过 SqlConnect 保存密码，则必须通过第 4 个参数提供源密码
 
 #### [<ins>返回目录</ins>](#目录)

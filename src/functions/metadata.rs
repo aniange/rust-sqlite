@@ -306,3 +306,87 @@ pub fn sqlpragma_impl(conn_str: &str, pragma_name: &str) -> Result<XLOPER12, Str
         build_result_array(&col_names, &rows_data, col_count)
     })
 }
+
+pub fn sqlencrypt_impl(
+    source_path: &str,
+    target_path: &str,
+    target_password: Option<&str>,
+    source_password: Option<&str>,
+) -> Result<String, String> {
+    // 基础校验
+    if source_path == target_path {
+        return Err("Source and target cannot be the same file".to_string());
+    }
+    if std::path::Path::new(target_path).exists() {
+        return Err(format!("Target file already exists: {}", target_path));
+    }
+
+    // 如果显式提供了源密码，临时注册到密码映射表（覆盖已有记录）
+    if let Some(pwd) = source_password {
+        crate::conn::set_password(source_path, pwd);
+    }
+
+    with_conn(source_path, |conn| {
+        // 验证源库可读（确认密钥正确或文件为明文）
+        conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
+            .map_err(|e| format!("Cannot read source database (wrong key?): {}", e))?;
+
+        // 构造 ATTACH 语句
+        let safe_target = target_path.replace('\'', "''");
+        let key_clause = match target_password {
+            Some(pwd) if !pwd.is_empty() => {
+                let safe_pwd = pwd.replace('\'', "''");
+                format!("KEY '{}'", safe_pwd)
+            }
+            _ => "KEY ''".to_string(), // 空密码 = 明文（解密导出）
+        };
+
+        // 1. ATTACH 目标库
+        let attach_sql = format!(
+            "ATTACH DATABASE '{}' AS encrypted_db {};",
+            safe_target, key_clause
+        );
+        conn.execute_batch(&attach_sql)
+            .map_err(|e| format!("ATTACH target failed: {}", e))?;
+
+        // 2. 执行 sqlcipher_export
+        let export_result =
+            conn.query_row::<(), _, _>("SELECT sqlcipher_export('encrypted_db');", [], |_| Ok(()));
+
+        if let Err(e) = export_result {
+            // 清理：DETACH + 删除可能残留的不完整文件
+            let _ = conn.execute_batch("DETACH DATABASE encrypted_db;");
+            let _ = std::fs::remove_file(target_path);
+            return Err(format!("Export failed: {}", e));
+        }
+
+        // 3. DETACH
+        conn.execute_batch("DETACH DATABASE encrypted_db;")
+            .map_err(|e| format!("DETACH failed: {}", e))?;
+
+        // 4. 确认目标文件已生成
+        if !std::path::Path::new(target_path).exists() {
+            return Err("Target file was not created".to_string());
+        }
+
+        // 5. 统计源库表数量用于返回信息
+        let count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+
+        let action = if target_password.map_or(false, |p| !p.is_empty()) {
+            "Encrypted"
+        } else {
+            "Decrypted"
+        };
+
+        Ok(format!(
+            "{} {} tables from '{}' to '{}'",
+            action, count, source_path, target_path
+        ))
+    })
+}
